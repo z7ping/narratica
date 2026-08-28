@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "files": [],
+  "references": [
+    { "path": "packages/client/runtime" },
+    { "path": "packages/client/layout" },
+    { "path": "packages/client/workspace" },
+    { "path": "packages/client/story-library" },
+    { "path": "packages/client/novel" },
+    { "path": "packages/client/director" }
+  ]
+}

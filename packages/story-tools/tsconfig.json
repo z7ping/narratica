@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib",
+    "tsBuildInfoFile": "./node_modules/.cache/tsconfig.tsbuildinfo"
+  },
+  "references": [
+    { "path": "../shared/contracts" },
+    { "path": "../plugin/stories" }
+  ],
+  "include": ["src/**/*.ts"]
+}

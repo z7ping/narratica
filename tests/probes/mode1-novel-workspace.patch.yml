@@ -1,0 +1,6 @@
+# 模式一产品探针：可用环境变量指定真实 Story Repository，未指定时使用 fixture。
+# 小说导演 Skill 由正式 Bundle 随包提供；外部完整 Skill Pack 覆盖入口也由正式 Bundle 读取。
+- id: narratica-stories
+  config:
+    repositories:
+      - !!js process.env.NARRATICA_STORY_REPOSITORY || 'tests/fixtures/story-repository'

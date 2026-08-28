@@ -1,0 +1,202 @@
+name: 持续集成
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: narratica-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+
+jobs:
+  quality:
+    name: 构建与自动化测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: 配置 pnpm 11.7.0
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+          run_install: false
+
+      - name: 配置 Node.js 24 与 pnpm 缓存
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: 按锁文件安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 验证 DSH 基线
+        run: pnpm run verify:dsh-baseline
+
+      - name: 编译 Host、Remote、Client 类型与 Bundle
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm run build 2>&1 | tee "$RUNNER_TEMP/narratica-compile.log"
+
+      - name: 架构门禁
+        run: pnpm run test:architecture
+
+      - name: 插件生命周期
+        run: pnpm run test:plugin-lifecycle
+
+      - name: Story 与 Mutation
+        run: pnpm run test:story && pnpm run test:story-mutation
+
+      - name: Skill Pack 与确定性确认
+        run: pnpm run test:skill-pack && pnpm run test:deterministic-confirm
+
+      - name: 重启恢复
+        run: pnpm run test:restart-recovery
+
+      - name: 模式一集成测试
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm run test:mode1 2>&1 | tee "$RUNNER_TEMP/narratica-mode1-tests.log"
+
+      - name: 模式二集成测试
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm run test:mode2 2>&1 | tee "$RUNNER_TEMP/narratica-mode2-tests.log"
+
+      - name: 模式三集成测试
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm run test:mode3 2>&1 | tee "$RUNNER_TEMP/narratica-mode3-tests.log"
+
+      - name: 保存质量日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: narratica-quality-logs
+          path: |
+            ${{ runner.temp }}/narratica-compile.log
+            ${{ runner.temp }}/narratica-mode1-tests.log
+            ${{ runner.temp }}/narratica-mode2-tests.log
+            ${{ runner.temp }}/narratica-mode3-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  dsh-profile:
+    name: DSH Profile 集成探针
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: 配置 pnpm 11.7.0
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+          run_install: false
+
+      - name: 配置 Node.js 24 与 pnpm 缓存
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: 按锁文件安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 创建并验证正式 Narratica Profile
+        env:
+          DSH_HOME: ${{ runner.temp }}/narratica-dsh-home
+        run: pnpm run profile:bootstrap > "$RUNNER_TEMP/narratica-dump-config.txt"
+
+      - name: 确认 Profile 只有一个正式 Narratica Bundle
+        env:
+          DSH_HOME: ${{ runner.temp }}/narratica-dsh-home
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs')
+          const path = require('node:path')
+          const profile = JSON.parse(fs.readFileSync(path.join(process.env.DSH_HOME, 'profiles', 'narratica', 'package.json'), 'utf8'))
+          const bundles = profile.dsh?.profile?.bundles ?? []
+          const expected = ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@narratica/narratica']
+          for (const name of expected) if (!bundles.includes(name)) throw new Error(`缺少 Bundle: ${name}`)
+          for (const name of ['@narratica/bundle-core', '@narratica/bundle-production', '@narratica/bundle-app']) if (bundles.includes(name)) throw new Error(`正式 Profile 不应包含旧 Bundle: ${name}`)
+          console.log(bundles.join(' -> '))
+          NODE
+
+      - name: 确认 DSH 宿主与 Narratica 插件同时进入组合配置
+        run: |
+          for plugin in ui-layout ui-sidebar ui-conversation ui-settings narratica-stories narratica-skill-pack narratica-providers narratica-media narratica-production narratica-client-runtime narratica-client-layout narratica-client-workspace narratica-client-story-library narratica-client-novel narratica-client-director; do
+            grep -q "$plugin" "$RUNNER_TEMP/narratica-dump-config.txt"
+          done
+
+      - name: 验证模式一 Story Repository 与 Skill Provider 探针
+        env:
+          DSH_HOME: ${{ runner.temp }}/narratica-dsh-home
+        run: |
+          pnpm run profile:mode1:dump > "$RUNNER_TEMP/narratica-mode1-dump-config.txt"
+          grep -q "tests/fixtures/story-repository" "$RUNNER_TEMP/narratica-mode1-dump-config.txt"
+          grep -q "narratica-skill-pack" "$RUNNER_TEMP/narratica-mode1-dump-config.txt"
+          grep -q "narratica-skill-filesystem" "$RUNNER_TEMP/narratica-mode1-dump-config.txt"
+          grep -q "providerName: narratica-novel" "$RUNNER_TEMP/narratica-mode1-dump-config.txt"
+
+      - name: 启动正式 DSH Web 并探测首页
+        env:
+          DSH_HOME: ${{ runner.temp }}/narratica-dsh-home
+        run: |
+          set -euo pipefail
+          pnpm exec dsh --profile narratica --port 3188 --no-open > "$RUNNER_TEMP/narratica-web.log" 2>&1 &
+          DSH_PID=$!
+          trap 'kill "$DSH_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:3188/ > "$RUNNER_TEMP/narratica-web-index.html"; then
+              echo "DSH Web 已启动"
+              exit 0
+            fi
+            if ! kill -0 "$DSH_PID" 2>/dev/null; then
+              echo 'DSH Web 进程提前退出：'
+              cat "$RUNNER_TEMP/narratica-web.log"
+              exit 1
+            fi
+            sleep 1
+          done
+          echo 'DSH Web 60 秒内未就绪：'
+          cat "$RUNNER_TEMP/narratica-web.log"
+          exit 1
+
+      - name: 保存 DSH 组合配置与 Web 启动日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: narratica-dsh-integration
+          path: |
+            ${{ runner.temp }}/narratica-dump-config.txt
+            ${{ runner.temp }}/narratica-mode1-dump-config.txt
+            ${{ runner.temp }}/narratica-web.log
+            ${{ runner.temp }}/narratica-web-index.html
+          if-no-files-found: ignore
+          retention-days: 7

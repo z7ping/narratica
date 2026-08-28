@@ -1,0 +1,7 @@
+{
+  "repository": "z7ping/novel-agent-skills",
+  "commit": "98ea528ac8754d2af4eef23f2491602ce2afc2a3",
+  "version": "0.11.1-director.1",
+  "skill_count": 25,
+  "policy": "builtin/novel/manifest.json and skills/00..24 are an exact source snapshot; Narratica adaptation belongs outside Skill source files"
+}

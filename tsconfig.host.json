@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "@deepseek-ai/dsh-typert-protocol": ["./types/dsh-typert-protocol.rc2.d.ts"],
+      "@narratica/contracts": ["./packages/shared/contracts/src/index.ts"],
+      "@narratica/contracts/remote-types": ["./packages/shared/contracts/src/remote-types.ts"],
+      "@narratica/story-core": ["./packages/core/story/src/index.ts"]
+    }
+  },
+  "files": [],
+  "references": [
+    { "path": "packages/shared/contracts" },
+    { "path": "packages/core/story" },
+    { "path": "packages/core/production" },
+    { "path": "packages/runtime/sqlite" },
+    { "path": "packages/plugin/stories" },
+    { "path": "packages/plugin/skill-pack" },
+    { "path": "packages/plugin/providers" },
+    { "path": "packages/plugin/media" },
+    { "path": "packages/plugin/production" },
+    { "path": "packages/story-tools" }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "name": "novel-agent-skills",
+  "version": "0.11.1-director.1",
+  "language": "zh-CN",
+  "author_facing_language": "zh-CN",
+  "language_policy": "chinese-first",
+  "default_entry": "24-novel-director",
+  "usage_mode": "natural-language-first",
+  "reference": {
+    "repository": "z7ping/MaliangAINovalWriter",
+    "role": "workflow reference, not project name"
+  },
+  "skills": [
+    {"id":"00-project-init","command":"/project-init","classification":"project-utility","audit":"docs/audit/00-project-init.md","evidence":["local-design"]},
+    {"id":"01-quick-start","command":"/quick-start","classification":"native","audit":"docs/audit/01-quick-start.md","evidence":["direct-code"]},
+    {"id":"02-setting","command":"/setting","classification":"native","audit":"docs/audit/02-setting.md","evidence":["direct-code"]},
+    {"id":"03-outline","command":"/outline","classification":"native","audit":"docs/audit/03-outline.md","evidence":["direct-code","feature-level"]},
+    {"id":"04-golden-three","command":"/golden-three","classification":"native","audit":"docs/audit/04-golden-three.md","evidence":["feature-level"]},
+    {"id":"05-next-outline","command":"/next-outline","classification":"native","audit":"docs/audit/05-next-outline.md","evidence":["feature-level-detailed"]},
+    {"id":"06-apply-outline","command":"/apply-outline","classification":"derived","audit":"docs/audit/06-apply-outline.md","evidence":["derived-from-native-action"]},
+    {"id":"07-scene-summary","command":"/scene-summary","classification":"native","audit":"docs/audit/07-scene-summary.md","evidence":["feature-level"]},
+    {"id":"08-expand","command":"/expand","classification":"native","audit":"docs/audit/08-expand.md","evidence":["feature-level"]},
+    {"id":"09-continue-writing","command":"/continue-writing","classification":"native","audit":"docs/audit/09-continue-writing.md","evidence":["feature-level"]},
+    {"id":"10-polish","command":"/polish","classification":"native","audit":"docs/audit/10-polish.md","evidence":["feature-level"]},
+    {"id":"11-chat","command":"/chat","classification":"native","audit":"docs/audit/11-chat.md","evidence":["feature-level","current-docs"]},
+    {"id":"12-preset-manager","command":"/preset","classification":"native-config","audit":"docs/audit/12-preset-manager.md","evidence":["feature-level"]},
+    {"id":"13-relation-network","command":"/relation","classification":"native","audit":"docs/audit/13-relation-network.md","evidence":["feature-level"]},
+    {"id":"14-import-novel","command":"/import-novel","classification":"native","audit":"docs/audit/14-import-novel.md","evidence":["feature-level"]},
+    {"id":"15-book-decomposition","command":"/decompose-book","classification":"native","audit":"docs/audit/15-book-decomposition.md","evidence":["feature-level-detailed"]},
+    {"id":"16-context-assembly","command":"/assemble-context","classification":"derived","audit":"docs/audit/16-context-assembly.md","evidence":["derived-from-multiple-native-mechanisms"]},
+    {"id":"17-consistency-check","command":"/consistency-check","classification":"derived-interface","audit":"docs/audit/17-consistency-check.md","evidence":["derived-from-native-mechanism"]},
+    {"id":"18-snippet-manager","command":"/snippet","classification":"native-deterministic","audit":"docs/audit/18-snippet-manager.md","evidence":["feature-level"]},
+    {"id":"19-writing-analysis","command":"/writing-analysis","classification":"native-deterministic","audit":"docs/audit/19-writing-analysis.md","evidence":["feature-level-detailed"]},
+    {"id":"20-story-bible","command":"/story-bible","classification":"derived-addon","audit":"docs/audit/20-story-bible.md","evidence":["local-design","cross-project-research"]},
+    {"id":"21-scene-planning","command":"/scene-plan","classification":"derived-addon","audit":"docs/audit/21-scene-planning.md","evidence":["local-design","story-planning-practice"]},
+    {"id":"22-quality-gate","command":"/quality-gate","classification":"derived-addon","audit":"docs/audit/22-quality-gate.md","evidence":["local-design","workflow-safety"]},
+    {"id":"23-chapter-commit","command":"/chapter-commit","classification":"derived-addon","audit":"docs/audit/23-chapter-commit.md","evidence":["local-design","long-form-runtime-pattern"]},
+    {"id":"24-novel-director","command":"/director","classification":"project-orchestration","audit":"docs/audit/24-novel-director.md","evidence":["local-design","usability-orchestration"]}
+  ],
+  "audit_status": {
+    "reference_behavior_contract": "complete: 00-19",
+    "runtime_addon_contract": "complete: 20-23",
+    "director_contract": "complete: 24",
+    "direct_code": "partial: 01,02 + 03 key prompt semantics",
+    "runtime": "not-tested",
+    "natural_language_runtime": "not-tested",
+    "reference_baseline": "z7ping/MaliangAINovalWriter@main"
+  }
+}

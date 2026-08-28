@@ -1,0 +1,5 @@
+export const DSH_VERSION = '0.1.1-rc.2'
+export const DSH_PROFILE = 'narratica'
+export const DSH_BASE_BUNDLE = '@deepseek-ai/dsh-base'
+export const DSH_WEB_BUNDLE = '@deepseek-ai/dsh-web-app'
+export const NARRATICA_BUNDLE = '@narratica/narratica'

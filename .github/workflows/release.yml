@@ -1,0 +1,137 @@
+name: 发布 Narratica
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '发行版本，例如 0.1.0-alpha.1'
+        required: true
+        default: '0.1.0-alpha.1'
+        type: string
+      npm_tag:
+        description: 'npm dist-tag，必须与版本阶段一致'
+        required: true
+        default: alpha
+        type: choice
+        options:
+          - alpha
+          - beta
+          - rc
+          - latest
+      mode:
+        description: 'verify 只验证发行产物；publish 才真正发布'
+        required: true
+        default: verify
+        type: choice
+        options:
+          - verify
+          - publish
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: narratica-release
+  cancel-in-progress: false
+
+env:
+  CI: true
+  RELEASE_VERSION: ${{ inputs.version }}
+  NPM_DIST_TAG: ${{ inputs.npm_tag }}
+
+jobs:
+  release:
+    name: 验证并发布 Narratica
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: 配置 pnpm 11.7.0
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+          run_install: false
+
+      - name: 配置 Node.js 24 与 npm Registry
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: 固定支持 Trusted Publishing 的 npm CLI
+        run: npm install --global npm@11.19.0
+
+      - name: 输出发行工具版本
+        run: |
+          node --version
+          pnpm --version
+          npm --version
+
+      - name: 真发布只允许从 main 手工启动
+        if: inputs.mode == 'publish'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != 'refs/heads/main' ]]; then
+            echo "publish 模式只能从 main 运行，当前：$GITHUB_REF"
+            exit 1
+          fi
+
+      - name: 按锁文件安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 完整代码质量门禁
+        run: pnpm run check
+
+      - name: 生成锁步发行态 Package Manifest
+        run: pnpm run release:prepare -- "$RELEASE_VERSION" "$NPM_DIST_TAG"
+
+      - name: 打包并验证真实 tarball
+        run: pnpm run release:pack
+
+      - name: 本地 tarball DSH Profile 与 Web 烟测
+        run: pnpm run release:smoke:local -- "$RELEASE_VERSION"
+
+      - name: 保存发行候选产物与烟测日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: narratica-release-${{ inputs.version }}
+          path: dist/release/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: 发布内部包并最后发布正式入口
+        if: inputs.mode == 'publish'
+        env:
+          # 首次创建 npm 包时可临时配置 granular NPM_TOKEN；
+          # 包建立并配置 Trusted Publisher 后可删除该 Secret，npm 会优先使用 OIDC。
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm run release:publish -- "$RELEASE_VERSION" "$NPM_DIST_TAG"
+
+      - name: 从 npm Registry 只安装顶层入口并再次烟测
+        if: inputs.mode == 'publish'
+        run: pnpm run release:smoke:registry -- "$RELEASE_VERSION"
+
+      - name: 创建 Git Tag 与 GitHub Release
+        if: inputs.mode == 'publish'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ENTRY_TGZ=$(node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('dist/release/release-manifest.json','utf8'));const p=m.packages.find(x=>x.entry);if(!p)process.exit(2);process.stdout.write(p.tarball)")
+          RELEASE_FLAGS=(--target "$GITHUB_SHA" --title "Narratica v$RELEASE_VERSION" --generate-notes)
+          if [[ "$RELEASE_VERSION" == *-* ]]; then
+            RELEASE_FLAGS+=(--prerelease)
+          fi
+          gh release create "v$RELEASE_VERSION" \
+            "dist/release/$ENTRY_TGZ" \
+            "dist/release/release-manifest.json" \
+            "${RELEASE_FLAGS[@]}"

@@ -1,0 +1,28 @@
+{
+  "name": "@narratica/narratica",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "@narratica/plugin-stories": "workspace:*",
+    "@narratica/plugin-skill-pack": "workspace:*",
+    "@narratica/story-tools": "workspace:*",
+    "@narratica/plugin-providers": "workspace:*",
+    "@narratica/plugin-media": "workspace:*",
+    "@narratica/plugin-production": "workspace:*",
+    "@narratica/client-runtime": "workspace:*",
+    "@narratica/client-layout": "workspace:*",
+    "@narratica/client-workspace": "workspace:*",
+    "@narratica/client-story-library": "workspace:*",
+    "@narratica/client-novel": "workspace:*",
+    "@narratica/client-director": "workspace:*"
+  }
+}

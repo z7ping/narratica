@@ -1,0 +1,108 @@
+# ADR-009 正式顶层 Bundle 配置补丁。
+# Narratica 作为标准树外 DSH Bundle 运行，不关闭、不替换 DSH 原有
+# Layout / Sidebar / Settings / Conversation 等宿主能力。
+#
+# Client 通过 sidebar.footer.action 提供固定入口，并利用 DSH 官方
+# conversation single-slot priority shadowing 临时显示完整 Narratica Workspace；
+# 退出时释放 Narratica 注册，原 Conversation 自动恢复。
+
+- insert:
+    - id: narratica-stories
+      name: '@narratica/plugin-stories'
+
+    - id: narratica-skill-pack
+      name: '@narratica/plugin-skill-pack'
+      config:
+        # 显式外部 Skill Pack 优先；未设置时插件使用随包运行子集。
+        novelRoot: !!js process.env.NARRATICA_NOVEL_SKILL_PACK_ROOT
+        screenplayRoot: !!js process.env.NARRATICA_SCREENPLAY_SKILL_PACK_ROOT
+        dramaRoot: !!js process.env.NARRATICA_DRAMA_SKILL_PACK_ROOT
+
+    # 小说创作 Skill Provider。
+    - id: narratica-skill-filesystem
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      inject:
+        - narraticaSkillPack
+      config:
+        providerName: narratica-novel
+        includeDefaultRoots: false
+        customSkillDirs: !!js ctx.narraticaSkillPack.skillDirs('novel')
+
+    # 小说 → 短剧剧本运行 Skill。模式二来源/改编/剧本/审查阶段使用。
+    - id: narratica-screenplay-skill-filesystem
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      inject:
+        - narraticaSkillPack
+      config:
+        providerName: narratica-screenplay
+        includeDefaultRoots: false
+        customSkillDirs: !!js ctx.narraticaSkillPack.skillDirs('screenplay')
+
+    # 正式剧本 → 视觉资产 / 分镜 / 媒体生产运行 Skill。
+    # 同一 short-drama-director 按当前导演路由切换 screenplay / production 工具域。
+    - id: narratica-drama-skill-filesystem
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      inject:
+        - narraticaSkillPack
+      config:
+        providerName: narratica-drama
+        includeDefaultRoots: false
+        customSkillDirs: !!js ctx.narraticaSkillPack.skillDirs('drama')
+
+    # Provider Registry 默认仍可为空。只有用户显式配置真实服务时才注册生产 Provider：
+    # - Ark：配置模型后必须提供 ARK_API_KEY；图片/视频结果立即下载到本地 Media Root。
+    # - FFmpeg：必须显式启用且启动时探测 ffmpeg -version 成功才注册。
+    - id: narratica-providers
+      name: '@narratica/plugin-providers'
+      config:
+        mediaRoot: !!js process.env.NARRATICA_MEDIA_ROOT
+        arkApiKey: !!js process.env.ARK_API_KEY
+        arkBaseUrl: !!js process.env.NARRATICA_ARK_BASE_URL
+        arkImageModel: !!js process.env.NARRATICA_ARK_IMAGE_MODEL
+        arkVideoModel: !!js process.env.NARRATICA_ARK_VIDEO_MODEL
+        arkImageSize: !!js process.env.NARRATICA_ARK_IMAGE_SIZE
+        arkVideoRatio: !!js process.env.NARRATICA_ARK_VIDEO_RATIO
+        arkVideoDuration: !!js process.env.NARRATICA_ARK_VIDEO_DURATION
+        arkVideoResolution: !!js process.env.NARRATICA_ARK_VIDEO_RESOLUTION
+        arkPollIntervalMs: !!js process.env.NARRATICA_ARK_POLL_INTERVAL_MS
+        arkTimeoutMs: !!js process.env.NARRATICA_ARK_TIMEOUT_MS
+        ffmpegEnabled: !!js process.env.NARRATICA_FFMPEG_ENABLED
+        ffmpegBin: !!js process.env.NARRATICA_FFMPEG_BIN
+
+    - id: narratica-media
+      name: '@narratica/plugin-media'
+
+    - id: narratica-production
+      name: '@narratica/plugin-production'
+      inject:
+        - narraticaProviders
+        - narraticaMedia
+
+    # Director Tools 在真实 Stories / Production 服务之后装配。工具不会暴露给普通
+    # DSH Agent：小说、剧本前期、媒体生产三个领域按当前 Director 路由注册到确切
+    # Agent scope；候选采用、音频决定、定稿与最终交付确认能力不注册给模型。
+    - id: narratica-story-tools
+      name: '@narratica/story-tools'
+
+    # Director 语言模型策略同样只作用于确切 Agent scope。固定模型通过 DSH
+    # installModelSelection 覆盖本轮请求，不调用 session.selectModel，也不修改宿主默认模型。
+    - id: narratica-director-model-policy
+      name: '@narratica/story-tools/model-policy'
+
+    - id: narratica-client-runtime
+      name: '@narratica/client-runtime'
+
+    - id: narratica-client-layout
+      name: '@narratica/client-layout'
+
+    - id: narratica-client-workspace
+      name: '@narratica/client-workspace'
+
+    - id: narratica-client-story-library
+      name: '@narratica/client-story-library'
+
+    - id: narratica-client-novel
+      name: '@narratica/client-novel'
+
+    - id: narratica-client-director
+      name: '@narratica/client-director'

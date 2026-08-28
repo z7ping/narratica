@@ -1,0 +1,16 @@
+{
+  "extends": "../../../tsconfig.client.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types",
+    "emitDeclarationOnly": true,
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["react"]
+  },
+  "references": [
+    { "path": "../runtime" },
+    { "path": "../workspace" }
+  ],
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

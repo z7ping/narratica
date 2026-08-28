@@ -1,0 +1,26 @@
+node_modules/
+lib/
+dist/
+coverage/
+.DS_Store
+.dsh-local/
+.zcode/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.crt
+*.cer
+*.der
+
+# Local credentials and runtime overrides
+.credentials/
+.secrets/
+*.local

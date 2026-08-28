@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narratica.dev/schema/project-manifest.schema.json",
+  "title": "Narratica Project Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "projectId", "title", "enabledDomains"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "enabledDomains": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": ["novel", "screenplay", "storyboard", "production"]
+      }
+    }
+  }
+}

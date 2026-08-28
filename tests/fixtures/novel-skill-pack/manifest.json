@@ -1,0 +1,8 @@
+{
+  "name": "novel-agent-skills",
+  "version": "0.11.1-director.1",
+  "default_entry": "24-novel-director",
+  "skills": [
+    { "id": "24-novel-director" }
+  ]
+}

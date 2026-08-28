@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "projectId": "gate2-fixture",
+  "title": "Gate 2 测试故事",
+  "enabledDomains": ["novel"]
+}
