@@ -46,6 +46,22 @@ afterEach(async () => {
 })
 
 describe('Runtime DB v3 重启恢复', () => {
+  it('全新数据库先补齐来源列再建立 v3 索引', async () => {
+    const databasePath = await tempDatabase()
+    const runtime = new NarraticaRuntimeSqlite(databasePath)
+    const columns = runtime.db.prepare('PRAGMA table_info(production_tasks)').all() as unknown as Array<{ name: string }>
+    const indexes = runtime.db.prepare('PRAGMA index_list(production_tasks)').all() as unknown as Array<{ name: string }>
+
+    expect(columns.map(column => column.name)).toEqual(expect.arrayContaining([
+      'source_project_id', 'source_episode_id', 'source_stage',
+    ]))
+    expect(indexes.map(index => index.name)).toEqual(expect.arrayContaining([
+      'idx_production_tasks_project', 'idx_production_tasks_episode',
+    ]))
+    expect(runtime.db.prepare('PRAGMA user_version').get()).toMatchObject({ user_version: 3 })
+    runtime.close()
+  })
+
   it('Host 重启后恢复 Story Projection 与完整生产来源身份', async () => {
     const databasePath = await tempDatabase()
     const provider: NarraticaProvider = {
@@ -133,6 +149,31 @@ describe('Runtime DB v3 重启恢复', () => {
     const ctx = await mount(databasePath)
     expect(ctx.narraticaProduction.getTask('task_legacy').source).toMatchObject({ projectId: '__legacy_unscoped__', episodeId: '__legacy_unscoped_episode__', stage: 'legacy-shot' })
     expect(ctx.narraticaProduction.getProjectProjection(PROJECT_ID).tasks).toHaveLength(0)
+  })
+
+  it('修复已标记 v3 但缺少来源列和索引的开发数据库', async () => {
+    const databasePath = await tempDatabase()
+    const legacy = new DatabaseSync(databasePath)
+    legacy.exec(`
+      CREATE TABLE production_tasks (
+        task_id TEXT PRIMARY KEY, source_kind TEXT NOT NULL, source_id TEXT NOT NULL, source_revision TEXT NOT NULL,
+        provider_id TEXT NOT NULL, provider_input_json TEXT NOT NULL, status TEXT NOT NULL,
+        selected_generation_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, error TEXT
+      ) STRICT;
+      PRAGMA user_version = 3;
+    `)
+    legacy.close()
+
+    const runtime = new NarraticaRuntimeSqlite(databasePath)
+    const columns = runtime.db.prepare('PRAGMA table_info(production_tasks)').all() as unknown as Array<{ name: string }>
+    const indexes = runtime.db.prepare('PRAGMA index_list(production_tasks)').all() as unknown as Array<{ name: string }>
+    expect(columns.map(column => column.name)).toEqual(expect.arrayContaining([
+      'source_project_id', 'source_episode_id', 'source_stage',
+    ]))
+    expect(indexes.map(index => index.name)).toEqual(expect.arrayContaining([
+      'idx_production_tasks_project', 'idx_production_tasks_episode',
+    ]))
+    runtime.close()
   })
 
   it('拒绝打开比当前程序更新的 Runtime DB schema', async () => {

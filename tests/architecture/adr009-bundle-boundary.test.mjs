@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { readFile } from './read-text.mjs'
 import test from 'node:test'
 
 import { NARRATICA_BUNDLE } from '../../scripts/dsh-baseline.mjs'
@@ -47,7 +47,10 @@ test('formal Bundle patch rows and Narratica dependency surface stay aligned', a
   const patch = await readFile('packages/bundle/narratica/cordis.patch.yml', 'utf8')
   const patchPackages = [...patch.matchAll(/name:\s*'(@narratica\/[^']+)'/g)].map(match => match[1])
 
-  assert.deepEqual([...new Set(patchPackages)].sort(), Object.keys(bundle.dependencies).sort())
+  const directPackageNames = [...new Set(patchPackages.map((name) => (
+    name === '@narratica/story-tools/model-policy' ? '@narratica/story-tools' : name
+  )))]
+  assert.deepEqual(directPackageNames.sort(), Object.keys(bundle.dependencies).sort())
   assert.match(patch, /name:\s*'@deepseek-ai\/dsh-skill-filesystem'/)
 })
 
@@ -109,7 +112,8 @@ test('director runtime uses official DSH standard preset and deterministic skill
 
   assert.match(runtime, /NOVEL_DIRECTOR_AGENT_PRESET = 'standard'/)
   assert.match(runtime, /NOVEL_DIRECTOR_SKILL = 'novel-director'/)
-  assert.match(runtime, /`\/\$\{NOVEL_DIRECTOR_SKILL\}\\n当前 Story Project：\$\{projectId\}/)
+  assert.match(runtime, /const skill = directorSkill\(effectiveRoute\)/)
+  assert.match(runtime, /`\/\$\{skill\}\\n当前 Story Project：\$\{projectId\}/)
   assert.doesNotMatch(runtime, /agentPreset:\s*['"]narratica-novel['"]/)
   assert.equal(root.scripts['preset:sync'], undefined)
   assert.equal(root.scripts['profile:gate3'], undefined)

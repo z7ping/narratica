@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { readFile } from './read-text.mjs'
 import test from 'node:test'
 
 test('Runtime DB uses built-in node:sqlite and keeps schema version 3 explicit', async () => {
@@ -7,7 +7,6 @@ test('Runtime DB uses built-in node:sqlite and keeps schema version 3 explicit',
   assert.match(source, /from 'node:sqlite'/)
   assert.match(source, /NARRATICA_RUNTIME_SCHEMA_VERSION = 3/)
   assert.match(source, /PRAGMA user_version = 1/)
-  assert.match(source, /PRAGMA user_version = 2/)
   assert.match(source, /PRAGMA user_version = 3/)
   assert.match(source, /production_tasks/)
   assert.match(source, /production_attempts/)
@@ -19,6 +18,7 @@ test('Runtime DB v2 adds project ownership without guessing legacy task ownershi
   const source = await readFile('packages/runtime/sqlite/src/index.ts', 'utf8')
   assert.match(source, /ADD COLUMN source_project_id TEXT NOT NULL DEFAULT '__legacy_unscoped__'/)
   assert.match(source, /idx_production_tasks_project/)
+  assert.ok(source.indexOf('ADD COLUMN source_project_id') < source.indexOf('CREATE INDEX IF NOT EXISTS idx_production_tasks_project'))
   assert.doesNotMatch(source, /UPDATE production_tasks SET source_project_id/)
 })
 

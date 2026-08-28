@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { readFile } from './read-text.mjs'
 import test from 'node:test'
 
 const runtimePackage = JSON.parse(await readFile('packages/client/runtime/package.json', 'utf8'))

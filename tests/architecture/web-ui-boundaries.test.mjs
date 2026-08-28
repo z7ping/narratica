@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { readFile } from './read-text.mjs'
 import { join } from 'node:path'
 import test from 'node:test'
 
@@ -52,5 +52,7 @@ test('导演助手三模式都只渲染真实 DSH Session，不保留旧未接�
   assert.doesNotMatch(shell, /当前只有小说创作可以使用真实导演会话/)
 
   assert.match(runtime, /route === 'screenplay-preproduction' \|\| route === 'media-production'/)
-  assert.match(styles, /没有会话证据时不在正式 UI 展示/)
+  assert.match(styles, /\.director-body>\.assistant-msg/)
+  assert.match(styles, /white-space:pre-wrap/)
+  assert.doesNotMatch(styles, /fixed-schedule|StaticAssistant/)
 })

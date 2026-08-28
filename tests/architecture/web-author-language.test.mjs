@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { readFile } from './read-text.mjs'
 import { join } from 'node:path'
 import test from 'node:test'
+import ts from 'typescript'
 
 const root = process.cwd()
 const read = path => readFile(join(root, path), 'utf8')
@@ -16,9 +17,13 @@ const MODE2_SURFACES = [
 ]
 
 function visibleLiterals(source) {
+  const file = ts.createSourceFile('surface.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
   const values = []
-  for (const match of source.matchAll(/(['"])([^'"\n]*)\1/g)) values.push(match[2] ?? '')
-  for (const match of source.matchAll(/>([^<>\s][^<]*)</g)) values.push(match[1] ?? '')
+  const visit = node => {
+    if (ts.isJsxText(node) || ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) values.push(node.text)
+    ts.forEachChild(node, visit)
+  }
+  visit(file)
   return values.join('\n')
 }
 
@@ -36,7 +41,7 @@ test('剧本与分镜普通界面使用作者语言', async () => {
 })
 
 test('媒体生产普通界面使用中文产品语言', async () => {
-  const source = await read('packages/client/workspace/src/client/mode3.tsx')
+  const source = visibleLiterals(await read('packages/client/workspace/src/client/mode3.tsx'))
   for (const term of ['Canonical', 'Proposed', 'Revision', 'Apply', 'Repository', 'Provider', 'Runtime']) {
     assert.ok(!source.includes(term), `模式三重新暴露内部术语：${term}`)
   }

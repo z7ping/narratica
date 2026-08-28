@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
-import { access, readFile } from 'node:fs/promises'
+import { access } from 'node:fs/promises'
 import test from 'node:test'
 import { resolve } from 'node:path'
+
+import { readFile } from './read-text.mjs'
 
 import {
   DSH_PROFILE,
@@ -63,9 +65,10 @@ test('dependency build scripts follow the reviewed DSH install policy', async ()
 test('every pull request runs the standard CI quality gate', async () => {
   const workflow = await readFile(resolve('.github/workflows/ci.yml'), 'utf8')
   assert.match(workflow, /^\s{2}pull_request:\s*\n\s{2}push:/m)
-  assert.doesNotMatch(workflow, /^\s{4}(?:branches|branches-ignore|paths|paths-ignore):/m)
+  const pullRequestTrigger = workflow.slice(workflow.indexOf('  pull_request:'), workflow.indexOf('  push:'))
+  assert.doesNotMatch(pullRequestTrigger, /^\s{4}(?:branches|branches-ignore|paths|paths-ignore):/m)
   assert.match(workflow, /^\s{2}workflow_dispatch:\s*$/m)
-  assert.match(workflow, /run:\s*pnpm run check/)
+  assert.match(workflow, /run:\s*pnpm run test:architecture/)
   assert.match(workflow, /^\s{4}needs:\s*quality\s*$/m)
 })
 

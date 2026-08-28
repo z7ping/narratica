@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { readFile } from './read-text.mjs'
 import test from 'node:test'
 
 test('media-production route keeps short-drama director but switches to restricted production domain', async () => {
@@ -7,7 +7,7 @@ test('media-production route keeps short-drama director but switches to restrict
   const tools = await readFile('packages/story-tools/src/index.ts', 'utf8')
   assert.match(runtime, /media-production/)
   assert.match(runtime, /SCREENPLAY_PREPRODUCTION_DIRECTOR_SKILL = 'short-drama-director'/)
-  assert.match(runtime, /当前导演路由：\$\{route\}/)
+  assert.match(runtime, /当前导演路由：\$\{effectiveRoute\}/)
   assert.match(tools, /NarraticaDirectorToolDomain = 'novel' \| 'screenplay' \| 'production'/)
   assert.match(tools, /MEDIA_PRODUCTION_ROUTE/)
   assert.match(tools, /registerProductionTools\(ctx, agent\.ctx\)/)

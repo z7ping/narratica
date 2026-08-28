@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { readFile } from './read-text.mjs'
 import test from 'node:test'
 
 function escapeRegExp(value) { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') }
@@ -40,9 +40,11 @@ test('mode-one reading preview is real project config + browser open, not a disa
   assert.doesNotMatch(source, /作品预览\s*[·・]\s*未接入/)
 })
 
-test('known toast-only fake assistant is restricted to mode two/three and cannot be selected in mode one', async () => {
+test('all three modes open a real route-aware Director instead of a toast-only fake assistant', async () => {
   const source = await readFile('packages/client/workspace/src/client/index.tsx', 'utf8')
-  assert.match(source, /function UnavailableAssistant\(\{ mode, close \}: \{ readonly mode: 'screenplay' \| 'production'/)
-  assert.match(source, /if \(mode !== 'novel'\) \{ openFloating\('assistant'\); return \}/)
-  assert.match(source, /if \(mode === 'novel'\) \{[\s\S]*?MODE1_ASSISTANT_TOOLS\.has\(tool\.id\)[\s\S]*?await openAssistant\(\)/)
+  assert.doesNotMatch(source, /function UnavailableAssistant/)
+  assert.match(source, /const route = directorRouteForMode\(mode\)/)
+  assert.match(source, /await props\.prepareDirector\(workspace\.projectId, route\)/)
+  assert.match(source, /MODE1_ASSISTANT_TOOLS\.has\(tool\.id\)\) \{ await openAssistant\(\)/)
+  assert.match(source, /tool\.id === 'sp-director'\) \{ await openAssistant\(\)/)
 })

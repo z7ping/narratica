@@ -93,7 +93,7 @@ describe('Gate 6 导演确定性确认', () => {
     expect(harness.prompt).toHaveBeenCalledTimes(1)
     expect(harness.prompt).toHaveBeenCalledWith([{
       type: 'text',
-      text: '/novel-director\n当前 Story Project：story-gate6\n\n继续写',
+      text: '/novel-director\n当前 Story Project：story-gate6\n当前导演路由：novel\n\n继续写',
     }], 'queue')
     expect(harness.confirmDraft).not.toHaveBeenCalled()
   })
@@ -102,7 +102,7 @@ describe('Gate 6 导演确定性确认', () => {
     const harness = createHarness({ drafts: [] })
 
     await expect(harness.director.submit(sessionId as never, '这版可以'))
-      .rejects.toThrow('当前项目没有待确认草稿')
+      .rejects.toThrow('当前项目没有待确认正文草稿')
     expect(harness.confirmDraft).not.toHaveBeenCalled()
     expect(harness.prompt).not.toHaveBeenCalled()
   })
@@ -146,7 +146,7 @@ describe('Gate 6 导演确定性确认', () => {
     expect(result).toEqual({ kind: 'agent' })
     expect(harness.prompt).toHaveBeenCalledWith([{
       type: 'text',
-      text: '/novel-director\n当前 Story Project：story-gate6\n\n我觉得这版可以再润色一下',
+      text: '/novel-director\n当前 Story Project：story-gate6\n当前导演路由：novel\n\n我觉得这版可以再润色一下',
     }], 'queue')
     expect(harness.confirmDraft).not.toHaveBeenCalled()
   })

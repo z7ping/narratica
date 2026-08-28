@@ -35,43 +35,8 @@ function migrate(db: DatabaseSync): void {
       `Narratica Runtime DB schema ${current} is newer than supported ${NARRATICA_RUNTIME_SCHEMA_VERSION}`,
     )
   }
-  if (current === NARRATICA_RUNTIME_SCHEMA_VERSION) {
-    // Older development DBs could have advanced user_version before all ALTERs
-    // were applied. Repair only the missing columns so existing runtime data is
-    // retained and later queries see the schema promised by the version.
-    const missingProject = !hasColumn(db, 'production_tasks', 'source_project_id')
-    const missingEpisode = !hasColumn(db, 'production_tasks', 'source_episode_id')
-    const missingStage = !hasColumn(db, 'production_tasks', 'source_stage')
-    if (!missingProject && !missingEpisode && !missingStage) return
-    db.exec('BEGIN IMMEDIATE')
-    try {
-      if (missingProject) db.exec("ALTER TABLE production_tasks ADD COLUMN source_project_id TEXT NOT NULL DEFAULT '__legacy_unscoped__'")
-      if (missingEpisode) db.exec("ALTER TABLE production_tasks ADD COLUMN source_episode_id TEXT NOT NULL DEFAULT '__legacy_unscoped_episode__'")
-      if (missingStage) db.exec("ALTER TABLE production_tasks ADD COLUMN source_stage TEXT NOT NULL DEFAULT 'legacy-shot'")
-      db.exec('CREATE INDEX IF NOT EXISTS idx_production_tasks_project ON production_tasks(source_project_id, updated_at)')
-      db.exec('CREATE INDEX IF NOT EXISTS idx_production_tasks_episode ON production_tasks(source_project_id, source_episode_id, source_stage, updated_at)')
-      db.exec('COMMIT')
-    } catch (error) {
-      rollbackQuietly(db)
-      throw error
-    }
-    return
-  }
-
   db.exec('BEGIN IMMEDIATE')
   try {
-    // Repair databases whose version number was advanced before an ALTER TABLE
-    // completed. The later migrations create indexes that depend on these
-    // columns, so ensure the dependency exists before entering those blocks.
-    if (current >= 1 && !hasColumn(db, 'production_tasks', 'source_project_id')) {
-      db.exec("ALTER TABLE production_tasks ADD COLUMN source_project_id TEXT NOT NULL DEFAULT '__legacy_unscoped__'")
-    }
-    if (current >= 2 && !hasColumn(db, 'production_tasks', 'source_episode_id')) {
-      db.exec("ALTER TABLE production_tasks ADD COLUMN source_episode_id TEXT NOT NULL DEFAULT '__legacy_unscoped_episode__'")
-    }
-    if (current >= 2 && !hasColumn(db, 'production_tasks', 'source_stage')) {
-      db.exec("ALTER TABLE production_tasks ADD COLUMN source_stage TEXT NOT NULL DEFAULT 'legacy-shot'")
-    }
     if (current < 1) {
       db.exec(`
         CREATE TABLE IF NOT EXISTS production_tasks (
@@ -128,20 +93,26 @@ function migrate(db: DatabaseSync): void {
         PRAGMA user_version = 1;
       `)
     }
-    if (current < 2) {
-      db.exec(`
-        CREATE INDEX IF NOT EXISTS idx_production_tasks_project
-          ON production_tasks(source_project_id, updated_at);
-        PRAGMA user_version = 2;
-      `)
+
+    // Some development databases advanced user_version before all ALTERs were
+    // applied. Always establish columns before creating dependent indexes; this
+    // also covers a fresh v0 database whose base table was created just above.
+    if (!hasColumn(db, 'production_tasks', 'source_project_id')) {
+      db.exec("ALTER TABLE production_tasks ADD COLUMN source_project_id TEXT NOT NULL DEFAULT '__legacy_unscoped__'")
     }
-    if (current < 3) {
-      db.exec(`
-        CREATE INDEX IF NOT EXISTS idx_production_tasks_episode
-          ON production_tasks(source_project_id, source_episode_id, source_stage, updated_at);
-        PRAGMA user_version = 3;
-      `)
+    if (!hasColumn(db, 'production_tasks', 'source_episode_id')) {
+      db.exec("ALTER TABLE production_tasks ADD COLUMN source_episode_id TEXT NOT NULL DEFAULT '__legacy_unscoped_episode__'")
     }
+    if (!hasColumn(db, 'production_tasks', 'source_stage')) {
+      db.exec("ALTER TABLE production_tasks ADD COLUMN source_stage TEXT NOT NULL DEFAULT 'legacy-shot'")
+    }
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_production_tasks_project
+        ON production_tasks(source_project_id, updated_at);
+      CREATE INDEX IF NOT EXISTS idx_production_tasks_episode
+        ON production_tasks(source_project_id, source_episode_id, source_stage, updated_at);
+      PRAGMA user_version = 3;
+    `)
     db.exec('COMMIT')
   } catch (error) {
     rollbackQuietly(db)

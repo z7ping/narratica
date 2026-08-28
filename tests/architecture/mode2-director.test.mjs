@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { readFile } from './read-text.mjs'
 import test from 'node:test'
 
 const sourceRevision = '98ea528ac8754d2af4eef23f2491602ce2afc2a3'
@@ -73,6 +73,6 @@ test('director invocation routes latest slash entry and short-drama route to iso
   assert.match(source, /registerNovelStoryTools\(agent\.ctx\)/)
   assert.match(source, /registerScreenplayTools\(ctx, agent\.ctx\)/)
   assert.match(source, /registerProductionTools\(ctx, agent\.ctx\)/)
-  assert.match(source, /current\.domain === domain/)
+  assert.match(source, /current\?\.domain === domain/)
   assert.match(source, /current\.dispose\(\)/)
 })

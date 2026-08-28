@@ -15,6 +15,7 @@ async function workingStory(): Promise<string> {
   tempRoots.push(root)
   const repository = join(root, 'story')
   await cp(resolve('tests/fixtures/story-repository'), repository, { recursive: true })
+  await rm(resolve(repository, '12-drama'), { recursive: true, force: true })
   return repository
 }
 

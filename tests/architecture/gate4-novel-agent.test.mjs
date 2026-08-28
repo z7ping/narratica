@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
-import { readFile, readdir } from 'node:fs/promises'
+import { readdir } from 'node:fs/promises'
 import test from 'node:test'
+
+import { readFile } from './read-text.mjs'
 
 async function readJson(path) { return JSON.parse(await readFile(path, 'utf8')) }
 
@@ -24,7 +26,7 @@ test('director client keeps official standard Preset and deterministic routed Sk
   assert.match(source, /NOVEL_DIRECTOR_SKILL = 'novel-director'/)
   assert.match(source, /SCREENPLAY_ADAPTATION_DIRECTOR_SKILL = 'novel-to-short-drama'/)
   assert.match(source, /SCREENPLAY_PREPRODUCTION_DIRECTOR_SKILL = 'short-drama-director'/)
-  assert.match(source, /const skill = directorSkill\(route\)/)
+  assert.match(source, /const skill = directorSkill\(effectiveRoute\)/)
   assert.match(source, /directorInput = `\/\$\{skill\}/)
 })
 
@@ -118,7 +120,7 @@ test('Story Tool modules expose proposed/preview capabilities but no canonical a
     'story_update_novel_story_bible',
   ]) assert.match(closure, new RegExp(tool))
   assert.match(context, /story_get_novel_context/)
-  assert.match(context, /stale\/unverified/)
+  assert.match(core, /stale\/unverified/)
 
   for (const source of [core, plans, setting, relation, outline, extracted, golden, closure, context]) {
     assert.doesNotMatch(source, /confirmDraft\(/)

@@ -32,6 +32,11 @@ async function createRepository(): Promise<string> {
     title: 'Proposed Fixture',
     enabledDomains: ['novel'],
   }, null, 2))
+  const scenePlanRoot = resolve(root, '03-outline/scenes/chapter-004')
+  await mkdir(scenePlanRoot, { recursive: true })
+  for (const [sceneId, order] of [['chapter-004-scene-01', 1], ['chapter-004-scene-02', 2]] as const) {
+    await writeFile(resolve(scenePlanRoot, `${sceneId}.md`), `---\ntype: scene-plan\nscene_id: ${sceneId}\nchapter_id: chapter-004\nscene_order: ${order}\nstatus: canonical\nrevision: 1\ncreated_at: 2026-08-22T00:00:00.000Z\nupdated_at: 2026-08-22T00:00:00.000Z\n---\n\n# 场景 ${order}\n\n正式场景计划。\n`)
+  }
   return root
 }
 

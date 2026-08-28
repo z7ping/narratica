@@ -2,6 +2,7 @@
 type: prose-draft
 scene_id: chapter-002-scene-01
 chapter_id: chapter-002
+scene_order: 1
 status: proposed
 revision: 2
 created_at: 2026-08-21T09:00:00.000Z

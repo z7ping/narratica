@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { readFile } from './read-text.mjs'
 import test from 'node:test'
 
 test('director submit routes explicit confirmation before Agent prompt', async () => {
   const source = await readFile('packages/client/runtime/src/client/index.ts', 'utf8')
   assert.match(source, /isDeterministicConfirmIntent\(content\)/)
   assert.match(source, /return this\.confirmUniqueProposedDraft\(sessionId\)/)
-  assert.match(source, /await this\.prompt\(sessionId, content\)/)
+  assert.match(source, /await this\.prompt\(sessionId, content, effectiveRoute\)/)
   assert.match(source, /this\.stories\.listProposedDrafts\(projectId\)/)
   assert.match(source, /this\.stories\.confirmDraft/)
   assert.match(source, /drafts\.length === 0/)
@@ -18,7 +18,8 @@ test('ordinary director requests deterministically invoke the bundled novel-dire
   assert.match(source, /NOVEL_DIRECTOR_SKILL = 'novel-director'/)
   assert.match(source, /NOVEL_DIRECTOR_AGENT_PRESET = 'standard'/)
   assert.match(source, /agentPreset: NOVEL_DIRECTOR_AGENT_PRESET/)
-  assert.match(source, /const directorInput = `\/\$\{NOVEL_DIRECTOR_SKILL\}/)
+  assert.match(source, /const skill = directorSkill\(effectiveRoute\)/)
+  assert.match(source, /const directorInput = `\/\$\{skill\}/)
   assert.match(source, /当前 Story Project：\$\{projectId\}/)
   assert.match(source, /session\.prompt\(\[\{ type: 'text', text: directorInput \}\], 'queue'\)/)
   assert.doesNotMatch(source, /agentPreset:\s*['"]narratica-novel['"]/)

@@ -565,7 +565,7 @@ export class NarraticaDirectorClient {
     const projectId = this.resolveProjectId(sessionId)
     const effectiveRoute = route ?? this.routeForProject(projectId)
     const skill = directorSkill(effectiveRoute)
-    const directorInput = `/${skill}\n当前 Story Project：${projectId}\n\n${content}`
+    const directorInput = `/${skill}\n当前 Story Project：${projectId}\n当前导演路由：${effectiveRoute}\n\n${content}`
     const result = await session.prompt([{ type: 'text', text: directorInput }], 'queue')
     if (!result.ok) throw new Error(`发送失败：${result.error.code}: ${result.error.message}`)
   }

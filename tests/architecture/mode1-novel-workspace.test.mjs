@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { readFile } from './read-text.mjs'
 import test from 'node:test'
 
 test('workspace router owns the single Narratica workspace slot', async () => {
@@ -27,7 +27,7 @@ test('novel editor writes proposed through Stories Client and confirms selected 
 test('semantic writing actions still route through the novel director', async () => {
   const source = await readFile('packages/client/novel/src/client/index.tsx', 'utf8')
   assert.match(source, /props\.runDirector/)
-  for (const label of ['继续写', '扩写', '润色', '一致性检查', '质量门禁']) assert.match(source, new RegExp(label))
+  for (const label of ['继续写', '扩写', '润色', '一致性检查', 'quality-gate']) assert.match(source, new RegExp(label))
 })
 
 test('director remains a closable project-bound drawer controlled by workspace state', async () => {
@@ -45,9 +45,9 @@ test('opening Director stages the project-bound Session through Narratica surfac
   const layout = await readFile('packages/client/layout/src/client/index.tsx', 'utf8')
   const novel = await readFile('packages/client/novel/src/client/index.tsx', 'utf8')
   const runtime = await readFile('packages/client/runtime/src/client/index.ts', 'utf8')
-  assert.match(workspace, /director\.createNovelSession\(projectId\)/)
+  assert.match(workspace, /director\.prepareProject\(projectId, route\)/)
   assert.match(novel, /director\.createNovelSession\(projectId\)/)
-  assert.match(layout, /ctx\.sessions\.open\(sessionId\)/)
+  assert.match(layout, /focusSession\(sessionId\)/)
   assert.doesNotMatch(runtime, /sessions\.open\(/)
 })
 
@@ -64,9 +64,10 @@ test('mode-one minimal chain keeps semantic generation, proposed mutation and de
   assert.match(stories, /@Remote\('getNovelWorkspace'\)/)
   assert.match(runtime, /projectSessions = new Map<ProjectId, SessionId>\(\)/)
   assert.match(runtime, /agentPreset: NOVEL_DIRECTOR_AGENT_PRESET/)
-  assert.match(workspace, /director\.createNovelSession\(projectId\)/)
-  assert.match(runtime, /const directorInput = `\/\$\{NOVEL_DIRECTOR_SKILL\}/)
-  assert.match(skill, /disable-model-invocation:\s*true/)
+  assert.match(workspace, /director\.prepareProject\(projectId, route\)/)
+  assert.match(runtime, /const skill = directorSkill\(effectiveRoute\)/)
+  assert.match(runtime, /const directorInput = `\/\$\{skill\}/)
+  assert.match(skill, /^name:\s*novel-director$/m)
   assert.match(coreTools, /story_create_novel_scene_draft/)
   assert.match(coreTools, /story_update_novel_scene_draft/)
   assert.match(coreTools, /rootCtx\.narraticaStories\.createDraft/)
@@ -99,7 +100,8 @@ test('novel workspace projection comes from Stories Service rather than browser 
   const client = await readFile('packages/client/novel/src/client/index.tsx', 'utf8')
   assert.match(service, /@Remote\('getNovelWorkspace'\)/)
   assert.match(service, /FilesystemNovelWorkspaceProjection/)
-  assert.doesNotMatch(client, /node:fs|04-scenes|06-drafts\/prose/)
+  assert.doesNotMatch(client, /node:fs/)
+  assert.match(client, /props\.getRepositoryWorkspace\(projectId\)/)
 })
 
 test('repository workspace explorer is a read-only flat Stories projection surfaced by the product shell', async () => {
@@ -119,11 +121,12 @@ test('repository workspace explorer is a read-only flat Stories projection surfa
   assert.match(runtime, /getRepositoryArtifact\(projectId: ProjectId, path: string\)/)
   assert.match(shell, />工作空间<\/button>/)
   assert.match(shell, /RepositoryWorkspacePanel/)
-  assert.match(panel, /第一阶段只读/)
+  assert.match(panel, /当前为只读浏览/)
   assert.match(panel, /作品结构/)
-  assert.match(panel, /原始目录/)
-  assert.match(panel, /Frontmatter/)
-  assert.match(panel, /Revision/)
+  assert.match(panel, /物理目录/)
+  assert.match(panel, /当前文件内容/)
+  assert.match(panel, /来源与依赖/)
+  assert.doesNotMatch(panel, />Frontmatter<|>Revision</)
   assert.doesNotMatch(panel, /writeFile|node:fs|confirmDraft|updateDraft/)
   assert.match(projection, /realpath/)
   assert.match(projection, /path escapes repository root through symlink/)
@@ -131,9 +134,9 @@ test('repository workspace explorer is a read-only flat Stories projection surfa
 
 test('repository workspace keeps user-visible freshness labels Chinese-first', async () => {
   const panel = await readFile('packages/client/workspace/src/client/repository-workspace.tsx', 'utf8')
-  assert.match(panel, /case 'current': return '当前'/)
-  assert.match(panel, /case 'stale': return '已过期'/)
-  assert.match(panel, /case 'unverified': return '未验证'/)
+  assert.match(panel, /case 'current': return '当前有效'/)
+  assert.match(panel, /case 'stale': return '需更新'/)
+  assert.match(panel, /case 'unverified': return '待验证'/)
   assert.match(panel, /case 'missing': return '缺失'/)
   assert.doesNotMatch(panel, />\{freshness\.freshness\}<\/span>/)
 })
@@ -141,11 +144,11 @@ test('repository workspace keeps user-visible freshness labels Chinese-first', a
 test('repository workspace semantic view groups the same files by authority instead of relabeling raw directories', async () => {
   const panel = await readFile('packages/client/workspace/src/client/repository-workspace.tsx', 'utf8')
   assert.match(panel, /SEMANTIC_GROUPS/)
-  for (const label of ['正式事实', '待确认工作稿', '派生与质量', '创作运行状态', '参考资料', '项目与配置']) {
+  for (const label of ['已确认故事事实', '待确认工作稿', '派生与检查', '创作运行记录', '参考资料', '项目与配置']) {
     assert.match(panel, new RegExp(label))
   }
   assert.match(panel, /files\.filter\(group\.accepts\)/)
-  assert.match(panel, /原始目录.*真实磁盘层级/s)
+  assert.match(panel, /物理目录.*真实工作空间/s)
 })
 
 test('repository workspace projects provenance on the server and only renders returned links on the client', async () => {
@@ -173,6 +176,6 @@ test('repository workspace reuses effective closure freshness instead of trustin
   }
   assert.match(panel, /metadata\.last_commit/)
   assert.match(panel, /commits\\\/\(chapter-\\d\{3,\}\)\\\.md/)
-  assert.match(panel, /不信任文件自报状态/)
+  assert.match(panel, /await stories\.getNovelClosureFreshness\(projectId, chapter\)/)
   assert.doesNotMatch(panel, /runtime_status\s*===|source_revisions/)
 })
