@@ -24,6 +24,10 @@ const stagingRoot = resolve(releaseDir, 'staging')
 await rm(releaseDir, { recursive: true, force: true })
 await mkdir(stagingRoot, { recursive: true })
 
+function internalReadme(packageName) {
+  return `# ${packageName}\n\n> Narratica 内部实现包（Internal implementation package）。\n\n请不要单独安装此包。Narratica 对外只提供一个正式安装入口：\`@narratica/narratica\`。\n\nDo not install this package directly. Install \`@narratica/narratica\` instead.\n`
+}
+
 const stagedPackages = []
 for (const pkg of releasePackages) {
   const manifest = structuredClone(pkg.manifest)
@@ -65,6 +69,14 @@ for (const pkg of releasePackages) {
     filter: source => !source.split(/[\\/]/).includes('node_modules'),
   })
   await writeFile(resolve(stagedDir, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`)
+
+  // npm 页面必须始终有可读说明。入口包复用完整公开 README；内部包只说明
+  // 自己的实现层身份与唯一正式安装入口，避免用户误把内部包当独立产品安装。
+  if (pkg.name === ENTRY_PACKAGE) {
+    await cp(resolve(repoRoot, 'README.md'), resolve(stagedDir, 'README.md'))
+  } else {
+    await writeFile(resolve(stagedDir, 'README.md'), internalReadme(pkg.name))
+  }
 
   stagedPackages.push({
     name: pkg.name,
