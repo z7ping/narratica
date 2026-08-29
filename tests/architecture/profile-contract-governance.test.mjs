@@ -5,18 +5,20 @@ import test from 'node:test'
 import { readFile } from './read-text.mjs'
 import {
   LEGACY_NARRATICA_CLIENT_LOADER_IDS,
+  REQUIRED_DSH_HOST_LOADER_IDS,
   REQUIRED_NARRATICA_LOADER_IDS,
   assertNarraticaProfileContract,
 } from '../../scripts/profile-contract.mjs'
 
 test('正式 Profile 契约只描述对外 Loader，不绑定入口内部 Client Fiber', () => {
+  assert.ok(REQUIRED_DSH_HOST_LOADER_IDS.includes('ui-layout'))
   assert.ok(REQUIRED_NARRATICA_LOADER_IDS.includes('narratica-client'))
   for (const legacyId of LEGACY_NARRATICA_CLIENT_LOADER_IDS) {
     assert.ok(!REQUIRED_NARRATICA_LOADER_IDS.includes(legacyId))
   }
 })
 
-test('统一契约同时覆盖单 Bundle、发行单入口依赖、正式 Loader 与旧 Loader 禁止项', () => {
+test('统一契约同时覆盖 DSH Host、单 Bundle、发行单入口、正式 Loader 与旧 Loader 禁止项', () => {
   const profile = {
     dependencies: {
       '@narratica/narratica': '0.1.0-alpha.2',
@@ -31,12 +33,18 @@ test('统一契约同时覆盖单 Bundle、发行单入口依赖、正式 Loader
       },
     },
   }
-  const dump = REQUIRED_NARRATICA_LOADER_IDS
+  const dump = [...REQUIRED_DSH_HOST_LOADER_IDS, ...REQUIRED_NARRATICA_LOADER_IDS]
     .map(id => `- id: ${id}`)
     .concat("  name: '@narratica/narratica'")
     .join('\n')
 
   assert.doesNotThrow(() => assertNarraticaProfileContract({ profile, dump, distribution: true }))
+
+  const missingHostDump = dump.replace('- id: ui-layout\n', '')
+  assert.throws(
+    () => assertNarraticaProfileContract({ profile, dump: missingHostDump, distribution: true }),
+    /ui-layout/,
+  )
 
   const legacyDump = `${dump}\n- id: narratica-client-runtime`
   assert.throws(
