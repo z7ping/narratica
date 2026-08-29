@@ -16,6 +16,13 @@ export const LEGACY_NARRATICA_BUNDLES = Object.freeze([
   '@narratica/bundle-app',
 ])
 
+export const REQUIRED_DSH_HOST_LOADER_IDS = Object.freeze([
+  'ui-layout',
+  'ui-sidebar',
+  'ui-conversation',
+  'ui-settings',
+])
+
 // 这里描述的是对 DSH 暴露的稳定装配契约，不描述入口包内部如何组织 Cordis Fiber。
 // Client 子插件数量、源码路径等内部实现变化，不应让发行/Profile 烟测失效。
 export const REQUIRED_NARRATICA_LOADER_IDS = Object.freeze([
@@ -76,7 +83,7 @@ export function assertFormalProfileContract(profile, { distribution = false } = 
 }
 
 export function assertComposedConfigContract(dump) {
-  for (const id of REQUIRED_NARRATICA_LOADER_IDS) {
+  for (const id of [...REQUIRED_DSH_HOST_LOADER_IDS, ...REQUIRED_NARRATICA_LOADER_IDS]) {
     if (!loaderIdPattern(id).test(dump)) {
       throw new Error(`组合配置缺少正式 Loader：${id}`)
     }
