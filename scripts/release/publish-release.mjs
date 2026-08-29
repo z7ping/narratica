@@ -22,8 +22,8 @@ const registryBase = (process.env.NPM_CONFIG_REGISTRY?.trim() || 'https://regist
 if (manifest.version !== version || manifest.npmTag !== npmTag) {
   throw new Error(`发布参数与 release-manifest 不一致：${version}/${npmTag} != ${manifest.version}/${manifest.npmTag}`)
 }
-if (manifest.packages.at(-1)?.name !== ENTRY_PACKAGE) {
-  throw new Error(`入口包必须最后发布：${ENTRY_PACKAGE}`)
+if (manifest.packages.length !== 1 || manifest.packages[0]?.name !== ENTRY_PACKAGE || manifest.packages[0]?.entry !== true) {
+  throw new Error(`正式 npm 发布必须且只能包含入口包 ${ENTRY_PACKAGE}`)
 }
 
 function run(command, args, options = {}) {
@@ -149,41 +149,30 @@ async function waitForPublishedIntegrity(state) {
 }
 
 if (dryRun) {
-  for (const pkg of manifest.packages) {
-    const tarball = resolve(releaseDir, pkg.tarball)
-    console.log(`npm dry-run ${pkg.name}@${version} -> ${npmTag}`)
-    run('npm', ['publish', tarball, '--tag', npmTag, '--access', 'public', '--ignore-scripts', '--dry-run'])
-  }
-  console.log(`npm 发布 dry-run 通过：${manifest.packages.length} 个包；未写入 Registry`)
+  const pkg = manifest.packages[0]
+  const tarball = resolve(releaseDir, pkg.tarball)
+  console.log(`npm dry-run ${pkg.name}@${version} -> ${npmTag}`)
+  run('npm', ['publish', tarball, '--tag', npmTag, '--access', 'public', '--ignore-scripts', '--dry-run'])
+  console.log('npm 发布 dry-run 通过：1 个正式入口包；未写入 Registry')
   process.exit(0)
 }
 
-const states = []
-for (const pkg of manifest.packages) states.push(await inspectPackage(pkg))
-
-const pending = states.filter(state => !state.versionExists)
-const newPackages = pending.filter(state => !state.packageExists)
-if (newPackages.length && !process.env.NODE_AUTH_TOKEN?.trim()) {
-  throw new Error(`首次创建 npm 包需要 NPM_TOKEN；当前仍有 ${newPackages.length} 个包尚不存在于 Registry：${newPackages.map(state => state.pkg.name).join(', ')}`)
+const state = await inspectPackage(manifest.packages[0])
+if (!state.versionExists && !state.packageExists && !process.env.NODE_AUTH_TOKEN?.trim()) {
+  throw new Error(`首次创建 npm 包需要 NPM_TOKEN：${state.pkg.name}`)
 }
-if (newPackages.length) {
+if (!state.versionExists && !state.packageExists) {
   const npmUser = run('npm', ['whoami'])
   console.log(`首次创建 npm 包认证通过：${npmUser}`)
 }
 
-let published = 0
-let resumed = 0
-for (const state of states) {
-  if (state.versionExists) {
-    resumed += 1
-    console.log(`跳过已发布且 integrity 一致：${state.pkg.name}@${version}`)
-    continue
-  }
-
-  console.log(`发布 ${state.pkg.name}@${version} -> ${npmTag}`)
-  run('npm', ['publish', state.tarball, '--tag', npmTag, '--access', 'public', '--ignore-scripts'])
-  await waitForPublishedIntegrity(state)
-  published += 1
+if (state.versionExists) {
+  console.log(`跳过已发布且 integrity 一致：${state.pkg.name}@${version}`)
+  console.log(`npm 单包发布完成：安全续跑；入口 ${ENTRY_PACKAGE}`)
+  process.exit(0)
 }
 
-console.log(`npm 锁步发布完成：新发布 ${published} 个，安全续跑跳过 ${resumed} 个；入口 ${ENTRY_PACKAGE} 最后处理`)
+console.log(`发布 ${state.pkg.name}@${version} -> ${npmTag}`)
+run('npm', ['publish', state.tarball, '--tag', npmTag, '--access', 'public', '--ignore-scripts'])
+await waitForPublishedIntegrity(state)
+console.log(`npm 单包发布完成：新发布 1 个；入口 ${ENTRY_PACKAGE}`)
