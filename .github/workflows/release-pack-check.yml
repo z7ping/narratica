@@ -33,9 +33,9 @@ env:
 
 jobs:
   pack:
-    name: 生成并验证发行 tarball
+    name: 生成、安装并验证发行 tarball
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: 检出代码
@@ -67,3 +67,6 @@ jobs:
 
       - name: 打包并验证真实 tarball
         run: pnpm run release:pack
+
+      - name: 本地 tarball DSH Profile 与 Web 烟测
+        run: pnpm run release:smoke:local -- 0.0.0-alpha.0
