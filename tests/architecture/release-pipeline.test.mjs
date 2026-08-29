@@ -17,27 +17,29 @@ const releaseScripts = [
   'scripts/release/publish-release.mjs',
 ]
 
-test('Release 只允许手工触发，日常 push/PR 不会进入发行链', async () => {
+test('正式发布只由 GitHub Release published 触发，workflow_dispatch 仅用于 verify', async () => {
   const workflow = await readFile('.github/workflows/release.yml', 'utf8')
-  assert.match(workflow, /on:\n  workflow_dispatch:/)
+  assert.match(workflow, /on:\n  release:\n    types:\n      - published\n  workflow_dispatch:/)
   assert.doesNotMatch(workflow, /^  push:/m)
   assert.doesNotMatch(workflow, /^  pull_request:/m)
-  assert.match(workflow, /default: verify/)
-  assert.match(workflow, /- verify\n          - publish/)
+  assert.match(workflow, /仅验证发行产物/)
+  assert.doesNotMatch(workflow, /default: publish/)
+  assert.doesNotMatch(workflow, /inputs\.mode/)
   assert.match(workflow, /cancel-in-progress: false/)
 })
 
-test('Release 使用 OIDC 权限且 publish 只能从 main 执行', async () => {
+test('Release 使用 OIDC 权限且 Tag 必须指向 main 已包含提交', async () => {
   const workflow = await readFile('.github/workflows/release.yml', 'utf8')
   assert.match(workflow, /contents: write/)
   assert.match(workflow, /id-token: write/)
-  assert.match(workflow, /if: inputs\.mode == 'publish'/)
-  assert.match(workflow, /refs\/heads\/main/)
+  assert.match(workflow, /if: github\.event_name == 'release'/)
+  assert.match(workflow, /main:refs\/remotes\/origin\/main/)
+  assert.match(workflow, /merge-base --is-ancestor/)
   assert.match(workflow, /npm@11\.19\.0/)
   assert.doesNotMatch(workflow, /cache:\s*pnpm/)
 })
 
-test('Release 必须先完整门禁、真实 pack、本地烟测，再发布与 registry 烟测', async () => {
+test('Release 必须先完整门禁、真实 pack、本地烟测，再发布、registry 烟测并上传已有 Release', async () => {
   const workflow = await readFile('.github/workflows/release.yml', 'utf8')
   const ordered = [
     'pnpm run check',
@@ -46,7 +48,7 @@ test('Release 必须先完整门禁、真实 pack、本地烟测，再发布与 
     'release:smoke:local',
     'release:publish',
     'release:smoke:registry',
-    'gh release create',
+    'gh release upload',
   ]
   let cursor = -1
   for (const marker of ordered) {
@@ -54,6 +56,16 @@ test('Release 必须先完整门禁、真实 pack、本地烟测，再发布与 
     assert.ok(next > cursor, `Release 步骤顺序错误或缺失：${marker}`)
     cursor = next
   }
+  assert.doesNotMatch(workflow, /gh release create/)
+})
+
+test('Release Tag 自动映射 npm dist-tag，并拒绝未知预发布阶段', async () => {
+  const workflow = await readFile('.github/workflows/release.yml', 'utf8')
+  assert.match(workflow, /\*-alpha\|\*-alpha\.\*\) NPM_DIST_TAG=alpha/)
+  assert.match(workflow, /\*-beta\|\*-beta\.\*\) NPM_DIST_TAG=beta/)
+  assert.match(workflow, /\*-rc\|\*-rc\.\*\) NPM_DIST_TAG=rc/)
+  assert.match(workflow, /\*\) NPM_DIST_TAG=latest/)
+  assert.match(workflow, /仅支持 alpha \/ beta \/ rc/)
 })
 
 test('源码保持不可直接发布，发行包由唯一入口依赖闭包自动发现', async () => {
