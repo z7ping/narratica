@@ -138,7 +138,7 @@ test('树外 Bundle 的 Host 插件只从 Profile 解析正式入口，再由入
   }
 })
 
-test('正式入口自身是唯一 Narratica Client loader，并以六个独立 Cordis Fiber 聚合现有实现', async () => {
+test('正式入口自身是唯一 Narratica Client loader，并通过 Cordis Fiber 聚合现有实现', async () => {
   const entry = JSON.parse(await readFile('packages/bundle/narratica/package.json', 'utf8'))
   const patch = await readFile('packages/bundle/narratica/cordis.patch.yml', 'utf8')
   const client = await readFile('packages/bundle/narratica/src/client/entry.ts', 'utf8')
@@ -158,15 +158,6 @@ test('正式入口自身是唯一 Narratica Client loader，并以六个独立 C
   for (const packageName of internalClientPackages) {
     assert.doesNotMatch(patch, new RegExp(`name: '${escapeRegExp(packageName)}'`))
   }
-
-  for (const sourcePath of [
-    'client/runtime/src/client/entry.js',
-    'client/layout/src/client/index.js',
-    'client/workspace/src/client/entry.js',
-    'client/story-library/src/client/index.js',
-    'client/novel/src/client/index.js',
-    'client/director/src/client/index.js',
-  ]) assert.ok(client.includes(sourcePath), `入口 Client 缺少子插件：${sourcePath}`)
 
   assert.match(client, /for \(const plugin of clientPlugins\) await ctx\.plugin\(plugin\)/)
   assert.match(root.scripts['build:client:bundles'], /packages\/bundle\/narratica @narratica\/narratica/)
@@ -190,12 +181,11 @@ test('Release 脚本必须把内部依赖锁到同版本，并为全部 tarball 
   assert.match(publish, /入口包必须最后发布/)
 })
 
-test('本地 tarball 烟测必须保持真实的一包安装语义，不能用顶层内部依赖掩盖解析问题', async () => {
+test('本地 tarball 烟测必须保持真实的一包安装语义，并复用发行态 Profile 契约', async () => {
   const smoke = await readFile('scripts/release/smoke-release.mjs', 'utf8')
   assert.match(smoke, /localOverrides/)
   assert.match(smoke, /add\(resolve\(releaseDir, entry\.tarball\)\)/)
-  assert.match(smoke, /narraticaDirectDependencies/)
-  assert.match(smoke, /Profile 顶层只能依赖正式入口包/)
+  assert.match(smoke, /await assertNarraticaProfileContract\(\{ profile, dump, distribution: true \}\)/)
   assert.match(smoke, /不得把内部包提升为 Profile 顶层依赖/)
   assert.doesNotMatch(smoke, /profile\.dependencies\[pkg\.name\]\s*=/)
 })

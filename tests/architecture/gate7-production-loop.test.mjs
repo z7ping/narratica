@@ -78,9 +78,9 @@ test('formal Narratica bundle composes providers then media then production with
   assert.match(patch, /inject:\s*\n\s*- narraticaProviders\s*\n\s*- narraticaMedia/)
 })
 
-test('profile bootstrap installs one formal Narratica bundle instead of legacy production layering', async () => {
+test('profile bootstrap installs one formal Narratica bundle through the shared contract instead of legacy production layering', async () => {
   const source = await readFile('scripts/bootstrap-profile.mjs', 'utf8')
-  assert.match(source, /NARRATICA_BUNDLE/)
+  assert.match(source, /assertFormalProfileContract\(profilePackage\)/)
   assert.match(source, /addToProfile\(narraticaBundleDir\)/)
   assert.doesNotMatch(source, /NARRATICA_(?:CORE|PRODUCTION|APP)_BUNDLE/)
   assert.doesNotMatch(source, /addToProfile\((?:core|production|app)BundleDir\)/)

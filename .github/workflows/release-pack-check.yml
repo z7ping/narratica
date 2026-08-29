@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'scripts/release/**'
+      - 'scripts/profile-contract.mjs'
+      - 'scripts/dsh-baseline.mjs'
+      - 'packages/bundle/narratica/cordis.patch.yml'
       - 'packages/**/package.json'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -14,6 +17,9 @@ on:
       - main
     paths:
       - 'scripts/release/**'
+      - 'scripts/profile-contract.mjs'
+      - 'scripts/dsh-baseline.mjs'
+      - 'packages/bundle/narratica/cordis.patch.yml'
       - 'packages/**/package.json'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -74,5 +80,10 @@ jobs:
       - name: npm publish dry-run
         run: pnpm run release:publish:dry-run -- 0.0.0-alpha.0 alpha
 
+      - name: PR 阶段说明
+        if: github.event_name == 'pull_request'
+        run: echo 'PR 阶段已完成发行打包与 npm dry-run；完整 DSH Web 烟测在 main / 手动触发时执行。'
+
       - name: 本地 tarball DSH Profile 与 Web 烟测
+        if: github.event_name != 'pull_request'
         run: pnpm run release:smoke:local -- 0.0.0-alpha.0

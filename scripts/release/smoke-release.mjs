@@ -3,6 +3,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 
+import { assertNarraticaProfileContract } from '../profile-contract.mjs'
 import {
   DSH_VERSION,
   ENTRY_PACKAGE,
@@ -158,19 +159,6 @@ if (mode === 'local') {
 const profile = JSON.parse(await readFile(profilePackagePath, 'utf8'))
 const dependencies = profile.dependencies ?? {}
 const bundles = profile.dsh?.profile?.bundles ?? []
-const requiredBundles = ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', ENTRY_PACKAGE]
-for (const name of requiredBundles) {
-  if (!bundles.includes(name)) throw new Error(`发行烟测 Profile 缺少 Bundle：${name}`)
-}
-const narraticaBundles = bundles.filter(name => name.startsWith('@narratica/'))
-if (narraticaBundles.length !== 1 || narraticaBundles[0] !== ENTRY_PACKAGE) {
-  throw new Error(`发行烟测必须只有一个 Narratica Bundle：${narraticaBundles.join(' -> ')}`)
-}
-
-const narraticaDirectDependencies = Object.keys(dependencies).filter(name => name.startsWith('@narratica/'))
-if (narraticaDirectDependencies.length !== 1 || narraticaDirectDependencies[0] !== ENTRY_PACKAGE) {
-  throw new Error(`发行烟测 Profile 顶层只能依赖正式入口包：${narraticaDirectDependencies.join(' -> ') || '无'}`)
-}
 
 if (mode === 'local') {
   const policy = await readFile(workspacePolicyPath, 'utf8')
@@ -187,29 +175,7 @@ if (mode === 'local') {
 }
 
 const dump = run(['exec', 'dsh', '--profile', 'narratica', '--dump-config'])
-const expectedLoaderIds = [
-  'narratica-stories',
-  'narratica-skill-pack',
-  'narratica-providers',
-  'narratica-media',
-  'narratica-production',
-  'narratica-client',
-]
-const legacyClientLoaderIds = [
-  'narratica-client-runtime',
-  'narratica-client-layout',
-  'narratica-client-workspace',
-  'narratica-client-story-library',
-  'narratica-client-novel',
-  'narratica-client-director',
-]
-const loaderIdPattern = id => new RegExp(`(?:^|\\n)\\s*-\\s*id:\\s*${id}(?:\\s|$)`, 'm')
-for (const id of expectedLoaderIds) {
-  if (!loaderIdPattern(id).test(dump)) throw new Error(`发行烟测组合配置缺少 Loader：${id}`)
-}
-for (const id of legacyClientLoaderIds) {
-  if (loaderIdPattern(id).test(dump)) throw new Error(`发行烟测不应再出现旧 Client Loader：${id}`)
-}
+await assertNarraticaProfileContract({ profile, dump, distribution: true })
 
 const chunks = []
 const child = spawn(pnpm, ['exec', 'dsh', '--profile', 'narratica', '--port', '3189', '--no-open'], {

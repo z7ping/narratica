@@ -17,6 +17,8 @@
     "build": "pnpm run verify:syntax && pnpm run build:host && pnpm run generate:typert && pnpm run build:client:types && pnpm run build:client:bundles",
     "typecheck": "pnpm run verify:syntax && pnpm run build:host && pnpm run generate:typert && pnpm run build:client:types",
     "verify:dsh-baseline": "node scripts/verify-dsh-baseline.mjs",
+    "verify:profile-contract": "node scripts/verify-profile-contract.mjs",
+    "verify:mode1-profile": "node scripts/verify-mode1-profile-probe.mjs",
     "profile:bootstrap": "pnpm run build && node scripts/bootstrap-profile.mjs",
     "prestart": "pnpm run build",
     "start": "dsh --profile narratica --patch tests/probes/mode1-novel-workspace.patch.yml",
