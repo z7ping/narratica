@@ -1,0 +1,43 @@
+name: npm Registry 发布可见性诊断
+
+on:
+  push:
+    branches:
+      - fix/release-registry-verification
+    paths:
+      - '.github/workflows/release-registry-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 直接查询已发布版本
+        shell: bash
+        run: |
+          node <<'NODE'
+          const name = '@narratica/client-director'
+          const version = '0.1.0-alpha.1'
+          const url = `https://registry.npmjs.org/${encodeURIComponent(name)}/${encodeURIComponent(version)}?probe=${Date.now()}`
+          const response = await fetch(url, {
+            headers: {
+              accept: 'application/json',
+              'cache-control': 'no-cache, no-store, max-age=0',
+              pragma: 'no-cache',
+            },
+            cache: 'no-store',
+          })
+          console.log(`Registry HTTP ${response.status}`)
+          if (!response.ok) {
+            console.log(await response.text())
+            process.exit(1)
+          }
+          const metadata = await response.json()
+          console.log(`${metadata.name}@${metadata.version}`)
+          console.log(`integrity=${metadata.dist?.integrity ?? '<missing>'}`)
+          if (!metadata.dist?.integrity?.startsWith('sha512-')) process.exit(1)
+          NODE
