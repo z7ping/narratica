@@ -21,12 +21,6 @@ const ENTRY_RUNTIME_FILES = Object.freeze([
   'runtime/plugin-production.js',
   'runtime/story-tools.js',
   'runtime/story-tools-model-policy.js',
-  'runtime/client-runtime.js',
-  'runtime/client-layout.js',
-  'runtime/client-workspace.js',
-  'runtime/client-story-library.js',
-  'runtime/client-novel.js',
-  'runtime/client-director.js',
 ])
 
 function run(command, args, options = {}) {
