@@ -67,7 +67,7 @@
         arkImageSize: !!js process.env.NARRATICA_ARK_IMAGE_SIZE
         arkVideoRatio: !!js process.env.NARRATICA_ARK_VIDEO_RATIO
         arkVideoDuration: !!js process.env.NARRATICA_ARK_VIDEO_DURATION
-        arkVideoResolution: !!js process.env.NARRATICA_VIDEO_RESOLUTION
+        arkVideoResolution: !!js process.env.NARRATICA_ARK_VIDEO_RESOLUTION
         arkPollIntervalMs: !!js process.env.NARRATICA_ARK_POLL_INTERVAL_MS
         arkTimeoutMs: !!js process.env.NARRATICA_ARK_TIMEOUT_MS
         ffmpegEnabled: !!js process.env.NARRATICA_FFMPEG_ENABLED
