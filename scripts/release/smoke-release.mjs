@@ -16,24 +16,25 @@ const mode = args[0]
 if (!['local', 'registry'].includes(mode)) throw new Error(`烟测模式必须是 local 或 registry，当前：${mode}`)
 
 const releaseManifest = JSON.parse(await readFile(resolve(releaseDir, 'release-manifest.json'), 'utf8'))
+const releasePlan = JSON.parse(await readFile(resolve(releaseDir, 'release-plan.json'), 'utf8'))
 const versionArg = args[1]
 if (versionArg && versionArg !== releaseManifest.version) {
   throw new Error(`烟测版本与 release-manifest 不一致：${versionArg} != ${releaseManifest.version}`)
+}
+if (releaseManifest.packages.length !== 1 || releaseManifest.packages[0]?.name !== ENTRY_PACKAGE) {
+  throw new Error(`发行烟测只接受单入口清单：${ENTRY_PACKAGE}`)
 }
 
 const tempRoot = resolve(tmpdir(), `narratica-release-smoke-${mode}-${process.pid}`)
 const dshHome = resolve(tempRoot, 'dsh-home')
 const profileDir = resolve(dshHome, 'profiles/narratica')
 const profilePackagePath = resolve(profileDir, 'package.json')
+const profileLockPath = resolve(profileDir, 'pnpm-lock.yaml')
 const logPath = resolve(releaseDir, `smoke-${mode}.log`)
 const registryNpmrcPath = resolve(tempRoot, 'registry.npmrc')
 const npmRegistry = 'https://registry.npmjs.org'
 const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 const commandShell = process.platform === 'win32'
-
-function localTarballSpec(pkg) {
-  return `file:${resolve(releaseDir, pkg.tarball)}`
-}
 
 function registryPackageUrl(name) {
   return `${npmRegistry}/${encodeURIComponent(name)}`
@@ -42,12 +43,9 @@ function registryPackageUrl(name) {
 await rm(tempRoot, { recursive: true, force: true })
 await mkdir(profileDir, { recursive: true })
 
-// local 模式仍把内部版本解析到真实本地 tarball，但只作为 pnpm override。
-// Profile 顶层依赖必须与真实用户一致：只有一个 @narratica/narratica。
-const localOverrides = mode === 'local'
-  ? `overrides:\n${releaseManifest.packages.map(pkg => `  ${JSON.stringify(pkg.name)}: ${JSON.stringify(localTarballSpec(pkg))}`).join('\n')}\n`
-  : ''
-const workspacePolicy = `allowBuilds:\n  esbuild: true\n  node-pty: true\n  koffi: true\n  '@deepseek-ai/dsh-subprocess-local@${DSH_VERSION}': true\n  '@google/genai': false\n  protobufjs: false\n  node-addon-require-builtin: false\n${localOverrides}`
+// 单包发行不再为任何内部 @narratica/* 建立本地 override。local 与 registry
+// 两种模式都必须模拟真实用户：Profile 顶层只安装一个 @narratica/narratica。
+const workspacePolicy = `allowBuilds:\n  esbuild: true\n  node-pty: true\n  koffi: true\n  '@deepseek-ai/dsh-subprocess-local@${DSH_VERSION}': true\n  '@google/genai': false\n  protobufjs: false\n  node-addon-require-builtin: false\n`
 const workspacePolicyPath = resolve(profileDir, 'pnpm-workspace.yaml')
 await writeFile(workspacePolicyPath, workspacePolicy)
 
@@ -141,39 +139,28 @@ async function addRegistryEntry(spec) {
   throw lastError
 }
 
+async function assertNoInternalPackagesInstalled() {
+  const lockfile = await readFile(profileLockPath, 'utf8')
+  for (const packageName of releasePlan.bundledWorkspacePackages ?? []) {
+    if (lockfile.includes(packageName)) {
+      throw new Error(`单包烟测发现内部 npm 包被安装：${packageName}`)
+    }
+  }
+}
+
 add(`@deepseek-ai/dsh-web-app@${DSH_VERSION}`)
 
+const entry = releaseManifest.packages[0]
 if (mode === 'local') {
-  const entry = releaseManifest.packages.find(item => item.name === ENTRY_PACKAGE)
-  if (!entry) throw new Error(`release-manifest 缺少入口包：${ENTRY_PACKAGE}`)
   add(resolve(releaseDir, entry.tarball))
 } else {
-  // 顶层入口可见并不代表它的所有内部依赖都已经传播完成。
-  // 先确认整个锁步发行闭包都能被匿名用户从 package document 读取，再交给 DSH 安装。
-  for (const pkg of releaseManifest.packages) {
-    await waitForRegistryPackageDocument(pkg.name, releaseManifest.version)
-  }
+  await waitForRegistryPackageDocument(ENTRY_PACKAGE, releaseManifest.version)
   await addRegistryEntry(`${ENTRY_PACKAGE}@${releaseManifest.version}`)
 }
 
+await assertNoInternalPackagesInstalled()
+
 const profile = JSON.parse(await readFile(profilePackagePath, 'utf8'))
-const dependencies = profile.dependencies ?? {}
-const bundles = profile.dsh?.profile?.bundles ?? []
-
-if (mode === 'local') {
-  const policy = await readFile(workspacePolicyPath, 'utf8')
-  for (const pkg of releaseManifest.packages) {
-    const override = `${JSON.stringify(pkg.name)}: ${JSON.stringify(localTarballSpec(pkg))}`
-    if (!policy.includes(override)) throw new Error(`本地 tarball 烟测缺少依赖覆盖：${pkg.name}`)
-    if (!pkg.entry && pkg.name in dependencies) {
-      throw new Error(`本地烟测不得把内部包提升为 Profile 顶层依赖：${pkg.name}`)
-    }
-    if (!pkg.entry && bundles.includes(pkg.name)) {
-      throw new Error(`内部包不能成为 Profile Bundle：${pkg.name}`)
-    }
-  }
-}
-
 const dump = run(['exec', 'dsh', '--profile', 'narratica', '--dump-config'])
 await assertNarraticaProfileContract({ profile, dump, distribution: true })
 
