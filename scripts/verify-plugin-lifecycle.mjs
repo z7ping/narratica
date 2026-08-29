@@ -75,7 +75,7 @@ async function assertUserDataPreserved() {
 }
 
 function assertNarraticaCapabilities(config) {
-  assert.match(config, /narratica-client-layout/)
+  assert.match(config, /- id: narratica-client\s+name: '@narratica\/narratica'/)
   assert.match(config, /narratica-stories/)
   assert.match(config, /narratica-story-tools/)
   assert.match(config, /narratica-skill-pack/)
@@ -83,7 +83,7 @@ function assertNarraticaCapabilities(config) {
 }
 
 function assertNarraticaCapabilitiesAbsent(config) {
-  assert.doesNotMatch(config, /narratica-client-layout/)
+  assert.doesNotMatch(config, /- id: narratica-client\s+name: '@narratica\/narratica'/)
   assert.doesNotMatch(config, /narratica-stories/)
   assert.doesNotMatch(config, /narratica-story-tools/)
   assert.doesNotMatch(config, /narratica-skill-pack/)
