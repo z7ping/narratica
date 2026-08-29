@@ -4,8 +4,12 @@
   "private": true,
   "type": "module",
   "files": [
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "runtime"
   ],
+  "exports": {
+    "./runtime/*": "./runtime/*.js"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
