@@ -6,19 +6,22 @@ import { readFile } from './read-text.mjs'
 import {
   LEGACY_NARRATICA_CLIENT_LOADER_IDS,
   REQUIRED_DSH_HOST_LOADER_IDS,
-  REQUIRED_NARRATICA_LOADER_IDS,
   assertNarraticaProfileContract,
+  loadFormalNarraticaLoaderIds,
 } from '../../scripts/profile-contract.mjs'
 
-test('正式 Profile 契约只描述对外 Loader，不绑定入口内部 Client Fiber', () => {
-  assert.ok(REQUIRED_DSH_HOST_LOADER_IDS.includes('ui-layout'))
-  assert.ok(REQUIRED_NARRATICA_LOADER_IDS.includes('narratica-client'))
+test('Narratica Loader 集合从正式 Bundle patch 推导，不维护第二份 expected 列表', async () => {
+  const formalLoaderIds = await loadFormalNarraticaLoaderIds()
+  assert.ok(formalLoaderIds.includes('narratica-client'))
+  assert.ok(formalLoaderIds.includes('narratica-stories'))
+  assert.ok(formalLoaderIds.includes('narratica-director-model-policy'))
   for (const legacyId of LEGACY_NARRATICA_CLIENT_LOADER_IDS) {
-    assert.ok(!REQUIRED_NARRATICA_LOADER_IDS.includes(legacyId))
+    assert.ok(!formalLoaderIds.includes(legacyId))
   }
 })
 
-test('统一契约同时覆盖 DSH Host、单 Bundle、发行单入口、正式 Loader 与旧 Loader 禁止项', () => {
+test('统一契约同时覆盖 DSH Host、单 Bundle、发行单入口、正式 patch Loader 与旧 Loader 禁止项', async () => {
+  const formalLoaderIds = await loadFormalNarraticaLoaderIds()
   const profile = {
     dependencies: {
       '@narratica/narratica': '0.1.0-alpha.2',
@@ -33,21 +36,27 @@ test('统一契约同时覆盖 DSH Host、单 Bundle、发行单入口、正式 
       },
     },
   }
-  const dump = [...REQUIRED_DSH_HOST_LOADER_IDS, ...REQUIRED_NARRATICA_LOADER_IDS]
+  const dump = [...REQUIRED_DSH_HOST_LOADER_IDS, ...formalLoaderIds]
     .map(id => `- id: ${id}`)
     .concat("  name: '@narratica/narratica'")
     .join('\n')
 
-  assert.doesNotThrow(() => assertNarraticaProfileContract({ profile, dump, distribution: true }))
+  await assert.doesNotReject(() => assertNarraticaProfileContract({ profile, dump, distribution: true }))
 
   const missingHostDump = dump.replace('- id: ui-layout\n', '')
-  assert.throws(
+  await assert.rejects(
     () => assertNarraticaProfileContract({ profile, dump: missingHostDump, distribution: true }),
     /ui-layout/,
   )
 
+  const missingFormalLoaderDump = dump.replace('- id: narratica-director-model-policy\n', '')
+  await assert.rejects(
+    () => assertNarraticaProfileContract({ profile, dump: missingFormalLoaderDump, distribution: true }),
+    /narratica-director-model-policy/,
+  )
+
   const legacyDump = `${dump}\n- id: narratica-client-runtime`
-  assert.throws(
+  await assert.rejects(
     () => assertNarraticaProfileContract({ profile, dump: legacyDump, distribution: true }),
     /旧 Client Loader/,
   )
@@ -59,7 +68,7 @@ test('统一契约同时覆盖 DSH Host、单 Bundle、发行单入口、正式 
       '@narratica/client-runtime': '0.1.0-alpha.2',
     },
   }
-  assert.throws(
+  await assert.rejects(
     () => assertNarraticaProfileContract({ profile: leakedProfile, dump, distribution: true }),
     /顶层只能依赖正式入口包/,
   )
