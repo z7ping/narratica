@@ -108,6 +108,21 @@ test('Release 脚本必须把内部依赖锁到同版本并拒绝 workspace 协�
   assert.match(publish, /入口包必须最后发布/)
 })
 
+test('Registry 烟测等待整个发行闭包的包级元数据传播并以匿名公众用户安装', async () => {
+  const smoke = await readFile('scripts/release/smoke-release.mjs', 'utf8')
+  assert.match(smoke, /waitForRegistryPackageDocument/)
+  assert.match(smoke, /metadata\?\.versions\?\.\[version\]/)
+  assert.match(smoke, /attempt <= 60/)
+  assert.match(smoke, /for \(const pkg of releaseManifest\.packages\)/)
+  assert.match(smoke, /waitForRegistryPackageDocument\(pkg\.name, releaseManifest\.version\)/)
+  assert.match(smoke, /registry\.npmrc/)
+  assert.match(smoke, /NPM_CONFIG_USERCONFIG = registryNpmrcPath/)
+  assert.match(smoke, /delete env\.NODE_AUTH_TOKEN/)
+  assert.match(smoke, /delete env\.NPM_TOKEN/)
+  assert.match(smoke, /NPM_CONFIG_PREFER_ONLINE/)
+  assert.doesNotMatch(smoke, /always-auth/)
+})
+
 test('所有发行脚本至少通过 Node 语法检查', () => {
   for (const script of releaseScripts) {
     const result = spawnSync(process.execPath, ['--check', script], { encoding: 'utf8' })

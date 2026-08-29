@@ -25,11 +25,17 @@ const dshHome = resolve(tempRoot, 'dsh-home')
 const profileDir = resolve(dshHome, 'profiles/narratica')
 const profilePackagePath = resolve(profileDir, 'package.json')
 const logPath = resolve(releaseDir, `smoke-${mode}.log`)
+const registryNpmrcPath = resolve(tempRoot, 'registry.npmrc')
+const npmRegistry = 'https://registry.npmjs.org'
 const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 const commandShell = process.platform === 'win32'
 
 function localTarballSpec(pkg) {
   return `file:${resolve(releaseDir, pkg.tarball)}`
+}
+
+function registryPackageUrl(name) {
+  return `${npmRegistry}/${encodeURIComponent(name)}`
 }
 
 await rm(tempRoot, { recursive: true, force: true })
@@ -45,6 +51,15 @@ await writeFile(workspacePolicyPath, workspacePolicy)
 const env = {
   ...process.env,
   DSH_HOME: dshHome,
+}
+
+if (mode === 'registry') {
+  // Registry 烟测必须模拟公众用户匿名安装，不能继承发行阶段的 npm 发布 Token。
+  await writeFile(registryNpmrcPath, `registry=${npmRegistry}/\n`)
+  env.NPM_CONFIG_USERCONFIG = registryNpmrcPath
+  env.NPM_CONFIG_PREFER_ONLINE = 'true'
+  delete env.NODE_AUTH_TOKEN
+  delete env.NPM_TOKEN
 }
 
 function run(argsToRun, options = {}) {
@@ -67,17 +82,57 @@ function add(spec) {
   run(['exec', 'dsh', 'plugin', '--profile', 'narratica', 'add', spec])
 }
 
+async function waitForRegistryPackageDocument(name, version) {
+  const url = registryPackageUrl(name)
+  const startedAt = Date.now()
+  let lastState = '未请求'
+
+  for (let attempt = 1; attempt <= 60; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+          'Cache-Control': 'no-cache, no-store',
+          Pragma: 'no-cache',
+        },
+        signal: AbortSignal.timeout(15000),
+      })
+
+      if (response.ok) {
+        const metadata = await response.json()
+        if (metadata?.versions?.[version]) {
+          const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000)
+          console.log(`npm Registry 包级元数据已可安装：${name}@${version}（${elapsedSeconds}s）`)
+          return
+        }
+        lastState = `HTTP ${response.status}，但 versions 中尚无 ${version}`
+      } else {
+        lastState = `HTTP ${response.status}`
+      }
+    } catch (error) {
+      lastState = error instanceof Error ? error.message : String(error)
+    }
+
+    if (attempt === 60) break
+    console.warn(`npm Registry 包级元数据尚未传播（${attempt}/60）：${name}@${version} / ${lastState}；5 秒后重试`)
+    await new Promise(resolvePromise => setTimeout(resolvePromise, 5000))
+  }
+
+  throw new Error(`npm Registry 5 分钟内仍未提供可安装包级元数据：${name}@${version}；最后状态：${lastState}`)
+}
+
 async function addRegistryEntry(spec) {
   let lastError
-  for (let attempt = 1; attempt <= 6; attempt += 1) {
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
       add(spec)
       return
     } catch (error) {
       lastError = error
-      if (attempt === 6) break
-      console.warn(`npm Registry 暂未可安装（${attempt}/6），5 秒后重试：${spec}`)
-      await new Promise(resolvePromise => setTimeout(resolvePromise, 5000))
+      if (attempt === 3) break
+      console.warn(`DSH Registry 安装暂未成功（${attempt}/3），10 秒后重试：${spec}`)
+      await new Promise(resolvePromise => setTimeout(resolvePromise, 10000))
     }
   }
   throw lastError
@@ -100,6 +155,11 @@ if (mode === 'local') {
   if (!entry) throw new Error(`release-manifest 缺少入口包：${ENTRY_PACKAGE}`)
   add(resolve(releaseDir, entry.tarball))
 } else {
+  // 顶层入口可见并不代表它的所有内部依赖都已经传播完成。
+  // 先确认整个锁步发行闭包都能被匿名用户从 package document 读取，再交给 DSH 安装。
+  for (const pkg of releaseManifest.packages) {
+    await waitForRegistryPackageDocument(pkg.name, releaseManifest.version)
+  }
   await addRegistryEntry(`${ENTRY_PACKAGE}@${releaseManifest.version}`)
 }
 
