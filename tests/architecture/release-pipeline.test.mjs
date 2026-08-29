@@ -94,7 +94,7 @@ test('源码保持不可直接发布，发行包由唯一入口依赖闭包自�
   for (const pkg of closure) assert.ok(pkg.name.startsWith('@narratica/'))
 })
 
-test('Release 脚本必须把内部依赖锁到同版本并拒绝 workspace 协议进入 tarball', async () => {
+test('Release 脚本必须把内部依赖锁到同版本、给每个 npm 包 README 并拒绝 workspace 协议进入 tarball', async () => {
   const prepare = await readFile('scripts/release/prepare-release.mjs', 'utf8')
   const pack = await readFile('scripts/release/pack-release.mjs', 'utf8')
   const publish = await readFile('scripts/release/publish-release.mjs', 'utf8')
@@ -103,9 +103,24 @@ test('Release 脚本必须把内部依赖锁到同版本并拒绝 workspace 协�
   assert.match(prepare, /manifest\.private = false/)
   assert.match(prepare, /delete manifest\.devDependencies/)
   assert.match(prepare, /access: 'public'/)
+  assert.match(prepare, /writeFile\(resolve\(stagedDir, 'README\.md'\), releaseReadme\(pkg, manifest\)\)/)
+  assert.match(prepare, /不是面向用户的独立安装入口/)
   assert.match(pack, /tarball 残留 workspace:/)
+  assert.match(pack, /tarball 缺少 README\.md/)
   assert.match(pack, /cordis\.patch\.yml/)
   assert.match(publish, /入口包必须最后发布/)
+})
+
+test('Registry 烟测等待包级元数据传播并以匿名公众用户安装', async () => {
+  const smoke = await readFile('scripts/release/smoke-release.mjs', 'utf8')
+  assert.match(smoke, /waitForRegistryPackageDocument/)
+  assert.match(smoke, /metadata\?\.versions\?\.\[version\]/)
+  assert.match(smoke, /attempt <= 60/)
+  assert.match(smoke, /registry\.npmrc/)
+  assert.match(smoke, /always-auth=false/)
+  assert.match(smoke, /delete env\.NODE_AUTH_TOKEN/)
+  assert.match(smoke, /delete env\.NPM_TOKEN/)
+  assert.match(smoke, /NPM_CONFIG_PREFER_ONLINE/)
 })
 
 test('所有发行脚本至少通过 Node 语法检查', () => {
