@@ -23,7 +23,7 @@ const formalNarraticaDependencies = [
   '@narratica/client-director',
 ]
 
-const formalRuntimeBridges = [
+const formalHostRuntimeBridges = [
   'plugin-stories',
   'plugin-skill-pack',
   'plugin-providers',
@@ -31,12 +31,6 @@ const formalRuntimeBridges = [
   'plugin-production',
   'story-tools',
   'story-tools-model-policy',
-  'client-runtime',
-  'client-layout',
-  'client-workspace',
-  'client-story-library',
-  'client-novel',
-  'client-director',
 ]
 
 test('ADR-009 exposes one formal top-level Narratica bundle', async () => {
@@ -58,15 +52,19 @@ test('ADR-009 exposes one formal top-level Narratica bundle', async () => {
   }
 })
 
-test('formal Bundle patch resolves Narratica rows through the single top-level package', async () => {
+test('formal Bundle resolves Host rows through entry bridges and exposes one Client loader row', async () => {
   const bundle = await readJson('packages/bundle/narratica/package.json')
   const patch = await readFile('packages/bundle/narratica/cordis.patch.yml', 'utf8')
   assert.equal(bundle.exports['./runtime/*'], './runtime/*.js')
+  assert.equal(bundle.exports['./client'], './lib/client.js')
   assert.ok(bundle.files.includes('runtime'))
+  assert.ok(bundle.files.includes('lib'))
 
-  for (const bridge of formalRuntimeBridges) {
+  for (const bridge of formalHostRuntimeBridges) {
     assert.match(patch, new RegExp(`name: '@narratica/narratica/runtime/${bridge}'`))
   }
+  assert.match(patch, /- id: narratica-client\n\s+name: '@narratica\/narratica'/)
+
   for (const dependency of formalNarraticaDependencies) {
     assert.doesNotMatch(patch, new RegExp(`name: '${dependency.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:/model-policy)?'`))
   }
@@ -93,7 +91,7 @@ test('formal Narratica bundle never disables or replaces DSH product surfaces', 
   assert.doesNotMatch(patch, /@narratica\/bundle-(?:core|production|app)/)
 })
 
-test('formal Narratica bundle composes Host, Director infrastructure and Client rows explicitly', async () => {
+test('formal Narratica bundle composes Host, Director infrastructure and one aggregate Client row explicitly', async () => {
   const patch = await readFile('packages/bundle/narratica/cordis.patch.yml', 'utf8')
 
   for (const row of [
@@ -104,15 +102,19 @@ test('formal Narratica bundle composes Host, Director infrastructure and Client 
     'narratica-providers',
     'narratica-media',
     'narratica-production',
+    'narratica-client',
+  ]) {
+    assert.match(patch, new RegExp(`- id: ${row}`))
+  }
+
+  for (const legacyClientRow of [
     'narratica-client-runtime',
     'narratica-client-layout',
     'narratica-client-workspace',
     'narratica-client-story-library',
     'narratica-client-novel',
     'narratica-client-director',
-  ]) {
-    assert.match(patch, new RegExp(`- id: ${row}`))
-  }
+  ]) assert.doesNotMatch(patch, new RegExp(`- id: ${legacyClientRow}`))
 
   assert.match(patch, /name: '@narratica\/narratica\/runtime\/story-tools'/)
   assert.match(patch, /name: '@deepseek-ai\/dsh-skill-filesystem'/)
@@ -121,8 +123,8 @@ test('formal Narratica bundle composes Host, Director infrastructure and Client 
   assert.match(patch, /ctx\.narraticaSkillPack\.skillDirs\('novel'\)/)
 
   // DSH does not apply dependency bundle patches transitively. The formal
-  // top-level bundle therefore owns every row it activates directly, while
-  // its runtime subpaths bridge those rows to private implementation packages.
+  // top-level bundle therefore owns every row it activates directly. Host
+  // rows bridge through its runtime subpaths; Client is aggregated by itself.
   assert.doesNotMatch(patch, /@narratica\/bundle-(?:core|production|app)/)
 })
 
