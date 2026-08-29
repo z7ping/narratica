@@ -84,12 +84,11 @@ function assertPackedPackage(pkg, manifest, files) {
 const results = []
 for (const pkg of plan.packages) {
   const before = new Set((await readdir(releaseDir)).filter(name => name.endsWith('.tgz')))
-  const packageDir = resolve(repoRoot, pkg.path)
+  const packageDir = resolve(repoRoot, pkg.packPath ?? pkg.path)
 
-  // release:prepare 会把工作区 manifest 临时改写为真实发行态；此时它们天然
-  // 与仓库 pnpm-lock.yaml 不一致。pnpm 11 在 CI 中执行 pack 时会因此触发
-  // frozen-lockfile 校验。这里仅负责封装已构建文件，不应再次进行依赖安装，
-  // 所以使用 npm pack，并禁用生命周期脚本，保持锁文件安装门禁仍由前置步骤负责。
+  // 发行态 manifest 已在 dist/release/staging 中生成，不参与 workspace lockfile。
+  // 这里仅封装已构建文件，因此使用 npm pack 且禁用生命周期脚本；依赖安装
+  // 与供应链校验仍由前置 pnpm install --frozen-lockfile 负责。
   run(npm, ['pack', '--ignore-scripts', '--pack-destination', releaseDir], { cwd: packageDir })
 
   const after = (await readdir(releaseDir)).filter(name => name.endsWith('.tgz') && !before.has(name))
@@ -101,9 +100,10 @@ for (const pkg of plan.packages) {
   const files = archiveFiles(tarballPath)
   assertPackedPackage(pkg, manifest, files)
   const sha256 = createHash('sha256').update(await readFile(tarballPath)).digest('hex')
+  const { packPath, ...releasePackage } = pkg
 
   results.push({
-    ...pkg,
+    ...releasePackage,
     tarball: tarballName,
     sha256,
   })
