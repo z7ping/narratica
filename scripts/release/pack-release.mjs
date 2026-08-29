@@ -12,7 +12,7 @@ import {
 } from './release-packages.mjs'
 
 const plan = JSON.parse(await readFile(resolve(releaseDir, 'release-plan.json'), 'utf8'))
-const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
+const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -84,8 +84,13 @@ function assertPackedPackage(pkg, manifest, files) {
 const results = []
 for (const pkg of plan.packages) {
   const before = new Set((await readdir(releaseDir)).filter(name => name.endsWith('.tgz')))
-  const packageDir = resolve(repoRoot, pkg.path)
-  run(pnpm, ['pack', '--pack-destination', releaseDir], { cwd: packageDir })
+  const packageDir = resolve(repoRoot, pkg.packPath ?? pkg.path)
+
+  // 发行态 manifest 已在 dist/release/staging 中生成，不参与 workspace lockfile。
+  // 这里仅封装已构建文件，因此使用 npm pack 且禁用生命周期脚本；依赖安装
+  // 与供应链校验仍由前置 pnpm install --frozen-lockfile 负责。
+  run(npm, ['pack', '--ignore-scripts', '--pack-destination', releaseDir], { cwd: packageDir })
+
   const after = (await readdir(releaseDir)).filter(name => name.endsWith('.tgz') && !before.has(name))
   if (after.length !== 1) throw new Error(`${pkg.name} 应生成一个 tarball，实际：${after.join(', ') || '无'}`)
 
@@ -95,9 +100,10 @@ for (const pkg of plan.packages) {
   const files = archiveFiles(tarballPath)
   assertPackedPackage(pkg, manifest, files)
   const sha256 = createHash('sha256').update(await readFile(tarballPath)).digest('hex')
+  const { packPath, ...releasePackage } = pkg
 
   results.push({
-    ...pkg,
+    ...releasePackage,
     tarball: tarballName,
     sha256,
   })

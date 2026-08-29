@@ -1,0 +1,69 @@
+name: 发行打包预检
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/release/**'
+      - 'packages/**/package.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/release.yml'
+      - '.github/workflows/release-pack-check.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/release/**'
+      - 'packages/**/package.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/release.yml'
+      - '.github/workflows/release-pack-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: narratica-release-pack-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+
+jobs:
+  pack:
+    name: 生成并验证发行 tarball
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: 配置 pnpm 11.7.0
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+          run_install: false
+
+      - name: 配置 Node.js 24 与 pnpm 缓存
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: 按锁文件安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 构建发行产物
+        run: pnpm run build
+
+      - name: 生成测试发行态 Package Manifest
+        run: pnpm run release:prepare -- 0.0.0-alpha.0 alpha
+
+      - name: 打包并验证真实 tarball
+        run: pnpm run release:pack
