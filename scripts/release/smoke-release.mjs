@@ -55,7 +55,7 @@ const env = {
 
 if (mode === 'registry') {
   // Registry 烟测必须模拟公众用户匿名安装，不能继承发行阶段的 npm 发布 Token。
-  await writeFile(registryNpmrcPath, `registry=${npmRegistry}/\nalways-auth=false\n`)
+  await writeFile(registryNpmrcPath, `registry=${npmRegistry}/\n`)
   env.NPM_CONFIG_USERCONFIG = registryNpmrcPath
   env.NPM_CONFIG_PREFER_ONLINE = 'true'
   delete env.NODE_AUTH_TOKEN
