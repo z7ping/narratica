@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'scripts/release/**'
+      - 'scripts/profile-contract.mjs'
+      - 'scripts/dsh-baseline.mjs'
       - 'packages/**/package.json'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -14,6 +16,8 @@ on:
       - main
     paths:
       - 'scripts/release/**'
+      - 'scripts/profile-contract.mjs'
+      - 'scripts/dsh-baseline.mjs'
       - 'packages/**/package.json'
       - 'package.json'
       - 'pnpm-lock.yaml'
