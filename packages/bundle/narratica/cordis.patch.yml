@@ -2,9 +2,12 @@
 # Narratica 作为标准树外 DSH Bundle 运行，不关闭、不替换 DSH 原有
 # Layout / Sidebar / Settings / Conversation 等宿主能力。
 #
-# Narratica 自有插件统一经 @narratica/narratica/runtime/* 桥接加载：
+# Narratica Host 插件统一经 @narratica/narratica/runtime/* 桥接加载：
 # DSH 从 Profile 根目录只需解析一个正式入口包，桥接模块再从入口包自己的
 # dependencies 解析内部实现包，避免 pnpm 严格依赖布局下传递依赖不可见。
+#
+# Client 同样只暴露 @narratica/narratica 一个 Loader row；入口包自己的
+# dsh.client + ./client 会在浏览器侧挂载六个独立 Cordis Client Fiber。
 #
 # Client 通过 sidebar.footer.action 提供固定入口，并利用 DSH 官方
 # conversation single-slot priority shadowing 临时显示完整 Narratica Workspace；
@@ -93,20 +96,7 @@
     - id: narratica-director-model-policy
       name: '@narratica/narratica/runtime/story-tools-model-policy'
 
-    - id: narratica-client-runtime
-      name: '@narratica/narratica/runtime/client-runtime'
-
-    - id: narratica-client-layout
-      name: '@narratica/narratica/runtime/client-layout'
-
-    - id: narratica-client-workspace
-      name: '@narratica/narratica/runtime/client-workspace'
-
-    - id: narratica-client-story-library
-      name: '@narratica/narratica/runtime/client-story-library'
-
-    - id: narratica-client-novel
-      name: '@narratica/narratica/runtime/client-novel'
-
-    - id: narratica-client-director
-      name: '@narratica/narratica/runtime/client-director'
+    # 唯一 Narratica Client Loader row。浏览器插件元数据与 ./client 都来自正式入口包，
+    # 入口 Client 再以独立 Fiber 挂载 runtime/layout/workspace/library/novel/director。
+    - id: narratica-client
+      name: '@narratica/narratica'
