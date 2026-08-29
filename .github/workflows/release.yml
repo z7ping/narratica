@@ -15,9 +15,9 @@ on:
           - verify
           - resume
       version:
-        description: '发行版本，例如 0.1.0-alpha.1'
+        description: '发行版本，例如 0.1.0-alpha.2'
         required: true
-        default: '0.1.0-alpha.1'
+        default: '0.1.0-alpha.2'
         type: string
       npm_tag:
         description: 'npm dist-tag，必须与版本阶段一致'
@@ -213,6 +213,15 @@ jobs:
       - name: 从 npm Registry 只安装顶层入口并再次烟测
         if: env.SHOULD_PUBLISH == 'true'
         run: pnpm run release:smoke:registry -- "$RELEASE_VERSION"
+
+      - name: 保存 Registry DSH Web 启动日志
+        if: ${{ always() && env.SHOULD_PUBLISH == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: narratica-registry-smoke-${{ github.run_id }}
+          path: dist/release/smoke-registry.log
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: 上传发行产物到当前 GitHub Release
         if: env.SHOULD_PUBLISH == 'true'
