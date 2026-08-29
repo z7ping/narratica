@@ -15,9 +15,9 @@ on:
           - verify
           - resume
       version:
-        description: '发行版本，例如 0.1.0-alpha.2'
+        description: '发行版本，例如 0.1.0-alpha.3'
         required: true
-        default: '0.1.0-alpha.2'
+        default: '0.1.0-alpha.3'
         type: string
       npm_tag:
         description: 'npm dist-tag，必须与版本阶段一致'
@@ -184,7 +184,7 @@ jobs:
       - name: 完整代码质量门禁
         run: pnpm run check
 
-      - name: 生成锁步发行态 Package Manifest
+      - name: 生成单包发行态 Package Manifest
         run: pnpm run release:prepare -- "$RELEASE_VERSION" "$NPM_DIST_TAG"
 
       - name: 打包并验证真实 tarball
@@ -202,7 +202,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      - name: 发布内部包并最后发布正式入口
+      - name: 发布唯一正式入口包
         if: env.SHOULD_PUBLISH == 'true'
         env:
           # 首次创建 npm 包时可临时配置 granular NPM_TOKEN；
