@@ -128,48 +128,20 @@ jobs:
       - name: 按锁文件安装依赖
         run: pnpm install --frozen-lockfile
 
-      - name: 创建并验证正式 Narratica Profile
+      - name: 创建正式 Narratica Profile
         env:
           DSH_HOME: ${{ runner.temp }}/narratica-dsh-home
-        run: pnpm run profile:bootstrap > "$RUNNER_TEMP/narratica-dump-config.txt"
+        run: pnpm run profile:bootstrap
 
-      - name: 确认 Profile 只有一个正式 Narratica Bundle
+      - name: 验证正式 Profile 装配契约
         env:
           DSH_HOME: ${{ runner.temp }}/narratica-dsh-home
-        run: |
-          node - <<'NODE'
-          const fs = require('node:fs')
-          const path = require('node:path')
-          const profile = JSON.parse(fs.readFileSync(path.join(process.env.DSH_HOME, 'profiles', 'narratica', 'package.json'), 'utf8'))
-          const bundles = profile.dsh?.profile?.bundles ?? []
-          const expected = ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@narratica/narratica']
-          for (const name of expected) if (!bundles.includes(name)) throw new Error(`缺少 Bundle: ${name}`)
-          for (const name of ['@narratica/bundle-core', '@narratica/bundle-production', '@narratica/bundle-app']) if (bundles.includes(name)) throw new Error(`正式 Profile 不应包含旧 Bundle: ${name}`)
-          console.log(bundles.join(' -> '))
-          NODE
-
-      - name: 确认 DSH 宿主与 Narratica 插件同时进入组合配置
-        run: |
-          for plugin in ui-layout ui-sidebar ui-conversation ui-settings narratica-stories narratica-skill-pack narratica-providers narratica-media narratica-production narratica-story-tools narratica-client; do
-            grep -q -- "- id: $plugin" "$RUNNER_TEMP/narratica-dump-config.txt"
-          done
-          grep -q "name: '@narratica/narratica'" "$RUNNER_TEMP/narratica-dump-config.txt"
-          for legacy_client in narratica-client-runtime narratica-client-layout narratica-client-workspace narratica-client-story-library narratica-client-novel narratica-client-director; do
-            if grep -q -- "- id: $legacy_client" "$RUNNER_TEMP/narratica-dump-config.txt"; then
-              echo "正式 Profile 不应再包含旧 Client Loader row: $legacy_client"
-              exit 1
-            fi
-          done
+        run: pnpm run verify:profile-contract -- "$RUNNER_TEMP/narratica-dump-config.txt"
 
       - name: 验证模式一 Story Repository 与 Skill Provider 探针
         env:
           DSH_HOME: ${{ runner.temp }}/narratica-dsh-home
-        run: |
-          pnpm run profile:mode1:dump > "$RUNNER_TEMP/narratica-mode1-dump-config.txt"
-          grep -q "tests/fixtures/story-repository" "$RUNNER_TEMP/narratica-mode1-dump-config.txt"
-          grep -q "narratica-skill-pack" "$RUNNER_TEMP/narratica-mode1-dump-config.txt"
-          grep -q "narratica-skill-filesystem" "$RUNNER_TEMP/narratica-mode1-dump-config.txt"
-          grep -q "providerName: narratica-novel" "$RUNNER_TEMP/narratica-mode1-dump-config.txt"
+        run: pnpm run verify:mode1-profile -- "$RUNNER_TEMP/narratica-mode1-dump-config.txt"
 
       - name: 启动正式 DSH Web 并探测首页
         env:
