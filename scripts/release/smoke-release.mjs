@@ -75,14 +75,23 @@ async function addRegistryEntry(spec) {
   throw lastError
 }
 
+function localTarballSpec(pkg) {
+  return `file:${resolve(releaseDir, pkg.tarball)}`
+}
+
 add(`@deepseek-ai/dsh-web-app@${DSH_VERSION}`)
 
 if (mode === 'local') {
   const profile = JSON.parse(await readFile(profilePackagePath, 'utf8'))
   profile.dependencies ??= {}
-  for (const pkg of releaseManifest.packages.filter(item => !item.entry)) {
-    profile.dependencies[pkg.name] = `file:${resolve(releaseDir, pkg.tarball)}`
+  profile.pnpm ??= {}
+  profile.pnpm.overrides ??= {}
+
+  for (const pkg of releaseManifest.packages) {
+    profile.pnpm.overrides[pkg.name] = localTarballSpec(pkg)
+    if (!pkg.entry) profile.dependencies[pkg.name] = localTarballSpec(pkg)
   }
+
   await writeFile(profilePackagePath, `${JSON.stringify(profile, null, 2)}\n`)
   run(['install', '--no-frozen-lockfile'], { cwd: profileDir })
 
@@ -106,9 +115,17 @@ if (narraticaBundles.length !== 1 || narraticaBundles[0] !== ENTRY_PACKAGE) {
 }
 
 if (mode === 'local') {
-  for (const pkg of releaseManifest.packages.filter(item => !item.entry)) {
-    if (!(pkg.name in dependencies)) throw new Error(`本地 tarball 烟测缺少内部依赖：${pkg.name}`)
-    if (bundles.includes(pkg.name)) throw new Error(`内部包不能成为 Profile Bundle：${pkg.name}`)
+  const overrides = profile.pnpm?.overrides ?? {}
+  for (const pkg of releaseManifest.packages) {
+    if (overrides[pkg.name] !== localTarballSpec(pkg)) {
+      throw new Error(`本地 tarball 烟测缺少依赖覆盖：${pkg.name}`)
+    }
+    if (!pkg.entry && !(pkg.name in dependencies)) {
+      throw new Error(`本地 tarball 烟测缺少内部依赖：${pkg.name}`)
+    }
+    if (!pkg.entry && bundles.includes(pkg.name)) {
+      throw new Error(`内部包不能成为 Profile Bundle：${pkg.name}`)
+    }
   }
 }
 
