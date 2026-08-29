@@ -5,12 +5,11 @@ import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 
 import {
-  DSH_BASE_BUNDLE,
   DSH_PROFILE,
   DSH_VERSION,
   DSH_WEB_BUNDLE,
-  NARRATICA_BUNDLE,
 } from './dsh-baseline.mjs'
+import { assertFormalProfileContract } from './profile-contract.mjs'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(scriptDir, '..')
@@ -130,37 +129,7 @@ for (const [packageName] of localProfilePlainDependencies) {
   }
 }
 
-const requiredBundles = [
-  DSH_BASE_BUNDLE,
-  DSH_WEB_BUNDLE,
-  NARRATICA_BUNDLE,
-]
-
-for (const required of requiredBundles) {
-  if (!bundles.includes(required)) {
-    throw new Error(`Narratica profile is missing required bundle: ${required}`)
-  }
-}
-
-const narraticaBundles = bundles.filter(name => name.startsWith('@narratica/'))
-if (narraticaBundles.length !== 1 || narraticaBundles[0] !== NARRATICA_BUNDLE) {
-  throw new Error(`Formal Profile must expose exactly one Narratica Bundle: ${narraticaBundles.join(' -> ')}`)
-}
-
-for (const legacyBundle of [
-  '@narratica/bundle-core',
-  '@narratica/bundle-production',
-  '@narratica/bundle-app',
-]) {
-  if (bundles.includes(legacyBundle)) {
-    throw new Error(`Formal Narratica profile must not expose legacy bundle: ${legacyBundle}`)
-  }
-}
-
-const positions = requiredBundles.map(name => bundles.indexOf(name))
-if (!positions.every((position, index) => index === 0 || positions[index - 1] < position)) {
-  throw new Error(`Unexpected Narratica bundle order: ${bundles.join(' -> ')}`)
-}
+assertFormalProfileContract(profilePackage)
 
 run(pnpm, ['exec', 'dsh', '--profile', DSH_PROFILE, '--dump-config'])
 console.log(`Narratica profile ready: ${profilePackagePath}`)
