@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="docs/brand/logo/narratica-mark.svg" width="96" alt="Narratica App Icon" />
+  <img src="https://raw.githubusercontent.com/z7ping/narratica/main/docs/brand/logo/narratica-mark.svg" width="96" alt="Narratica App Icon" />
 </p>
 
 <h1 align="center">
-  <img src="docs/brand/logo/master/2026-08-26/narratica-wordmark-master.svg" width="300" alt="Narratica" />
+  <img src="https://raw.githubusercontent.com/z7ping/narratica/main/docs/brand/logo/master/2026-08-26/narratica-wordmark-master.svg" width="300" alt="Narratica" />
 </h1>
 
 <p align="center"><strong>心里的故事，陪你做成作品。</strong></p>
@@ -31,11 +31,11 @@ Narratica 基于 DSH / Cordis，但不是独立 DSH 发行版。正式产品形�
 
 ### 故事库
 
-![Narratica 故事库](docs/assets/screenshots/story-library.png)
+![Narratica 故事库](https://raw.githubusercontent.com/z7ping/narratica/main/docs/assets/screenshots/story-library.png)
 
 ### 小说创作工作台
 
-![Narratica 小说创作工作台](docs/assets/screenshots/novel-workbench.png)
+![Narratica 小说创作工作台](https://raw.githubusercontent.com/z7ping/narratica/main/docs/assets/screenshots/novel-workbench.png)
 
 ## 当前产品结构
 
@@ -174,7 +174,7 @@ Narratica 不把正文存进 DSH Session。最小 Story Repository：
 }
 ```
 
-精确格式以 [`packages/shared/contracts/schema/project-manifest.schema.json`](packages/shared/contracts/schema/project-manifest.schema.json) 为准。测试结构可参考 [`tests/fixtures/story-repository`](tests/fixtures/story-repository)。
+精确格式以 [`packages/shared/contracts/schema/project-manifest.schema.json`](https://github.com/z7ping/narratica/blob/main/packages/shared/contracts/schema/project-manifest.schema.json) 为准。测试结构可参考 [`tests/fixtures/story-repository`](https://github.com/z7ping/narratica/tree/main/tests/fixtures/story-repository)。
 
 Windows PowerShell：
 
@@ -233,13 +233,13 @@ Narratica/
 - `verify`：完整检查、生成发行 manifest、真实 pack、本地 tarball 烟测，不发布；
 - `publish`：通过 verify 后发布 npm、执行 Registry 烟测并创建 GitHub Release。
 
-发行行为以 [`.github/workflows/release.yml`](.github/workflows/release.yml) 和 [`scripts/release/`](scripts/release/) 中的可执行实现为准。
+发行行为以 [`.github/workflows/release.yml`](https://github.com/z7ping/narratica/blob/main/.github/workflows/release.yml) 和 [`scripts/release/`](https://github.com/z7ping/narratica/tree/main/scripts/release) 中的可执行实现为准。
 
 ## 贡献、安全与许可证
 
-- 贡献说明：[`CONTRIBUTING.md`](CONTRIBUTING.md)
-- 安全报告：[`SECURITY.md`](SECURITY.md)
-- 品牌规则：[`TRADEMARKS.md`](TRADEMARKS.md)
-- 代码许可证：MIT，见 [`LICENSE`](LICENSE)
+- 贡献说明：[`CONTRIBUTING.md`](https://github.com/z7ping/narratica/blob/main/CONTRIBUTING.md)
+- 安全报告：[`SECURITY.md`](https://github.com/z7ping/narratica/blob/main/SECURITY.md)
+- 品牌规则：[`TRADEMARKS.md`](https://github.com/z7ping/narratica/blob/main/TRADEMARKS.md)
+- 代码许可证：MIT，见 [`LICENSE`](https://github.com/z7ping/narratica/blob/main/LICENSE)
 
 Narratica 名称、Logo、App Icon 和其他品牌标识不因代码采用 MIT License 而自动授予商标使用权，具体以 `TRADEMARKS.md` 为准。
