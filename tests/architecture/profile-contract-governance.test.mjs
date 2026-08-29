@@ -91,6 +91,17 @@ test('发行烟测复用统一 Profile 契约，不再维护独立 Loader 名单
   assert.doesNotMatch(smoke, /legacyClientLoaderIds/)
 })
 
+test('正式 Bundle patch 与 Profile 契约变化必须触发发行打包预检', async () => {
+  const workflow = await readFile('.github/workflows/release-pack-check.yml', 'utf8')
+  for (const path of [
+    "scripts/profile-contract.mjs",
+    "scripts/dsh-baseline.mjs",
+    "packages/bundle/narratica/cordis.patch.yml",
+  ]) {
+    assert.ok(workflow.split(`'${path}'`).length >= 3, `pull_request/push 都必须监听：${path}`)
+  }
+})
+
 test('新增 Profile 契约脚本通过 Node 语法检查', () => {
   for (const script of [
     'scripts/profile-contract.mjs',
