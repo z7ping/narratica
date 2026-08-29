@@ -115,7 +115,7 @@ async function waitForRegistryPackageDocument(name, version) {
     }
 
     if (attempt === 60) break
-    console.warn(`npm Registry 包级元数据尚未传播（${attempt}/60）：${lastState}；5 秒后重试`)
+    console.warn(`npm Registry 包级元数据尚未传播（${attempt}/60）：${name}@${version} / ${lastState}；5 秒后重试`)
     await new Promise(resolvePromise => setTimeout(resolvePromise, 5000))
   }
 
@@ -155,7 +155,11 @@ if (mode === 'local') {
   if (!entry) throw new Error(`release-manifest 缺少入口包：${ENTRY_PACKAGE}`)
   add(resolve(releaseDir, entry.tarball))
 } else {
-  await waitForRegistryPackageDocument(ENTRY_PACKAGE, releaseManifest.version)
+  // 顶层入口可见并不代表它的所有内部依赖都已经传播完成。
+  // 先确认整个锁步发行闭包都能被匿名用户从 package document 读取，再交给 DSH 安装。
+  for (const pkg of releaseManifest.packages) {
+    await waitForRegistryPackageDocument(pkg.name, releaseManifest.version)
+  }
   await addRegistryEntry(`${ENTRY_PACKAGE}@${releaseManifest.version}`)
 }
 
