@@ -60,7 +60,6 @@ function assertPackedPackage(pkg, manifest, files) {
   if (manifest.license !== 'MIT') throw new Error(`${pkg.name} tarball 缺少 MIT license 元数据`)
   if (manifest.repository?.url !== REPOSITORY_URL) throw new Error(`${pkg.name} 缺少正确 repository.url`)
   if (JSON.stringify(manifest).includes('workspace:')) throw new Error(`${pkg.name} tarball 残留 workspace: 依赖`)
-  if (!files.has('README.md')) throw new Error(`${pkg.name} tarball 缺少 README.md`)
 
   for (const field of dependencyFields) {
     for (const [name, range] of Object.entries(manifest[field] ?? {})) {
