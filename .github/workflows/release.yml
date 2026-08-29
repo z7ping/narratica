@@ -1,15 +1,18 @@
 name: 发布 Narratica
 
 on:
+  release:
+    types:
+      - published
   workflow_dispatch:
     inputs:
       version:
-        description: '发行版本，例如 0.1.0-alpha.1'
+        description: '仅验证发行产物，例如 0.1.0-alpha.1'
         required: true
         default: '0.1.0-alpha.1'
         type: string
       npm_tag:
-        description: 'npm dist-tag，必须与版本阶段一致'
+        description: '仅验证使用的 npm dist-tag，必须与版本阶段一致'
         required: true
         default: alpha
         type: choice
@@ -18,14 +21,6 @@ on:
           - beta
           - rc
           - latest
-      mode:
-        description: 'verify 只验证发行产物；publish 才真正发布'
-        required: true
-        default: verify
-        type: choice
-        options:
-          - verify
-          - publish
 
 permissions:
   contents: write
@@ -37,8 +32,6 @@ concurrency:
 
 env:
   CI: true
-  RELEASE_VERSION: ${{ inputs.version }}
-  NPM_DIST_TAG: ${{ inputs.npm_tag }}
 
 jobs:
   release:
@@ -50,6 +43,7 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: 配置 pnpm 11.7.0
@@ -73,13 +67,50 @@ jobs:
           pnpm --version
           npm --version
 
-      - name: 真发布只允许从 main 手工启动
-        if: inputs.mode == 'publish'
+      - name: 解析发行参数
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_NPM_TAG: ${{ inputs.npm_tag }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == 'release' ]]; then
+            if [[ -z "$RELEASE_TAG" || "$RELEASE_TAG" != v* ]]; then
+              echo "GitHub Release Tag 必须使用 v<semver> 形式，当前：${RELEASE_TAG:-<empty>}"
+              exit 1
+            fi
+
+            RELEASE_VERSION="${RELEASE_TAG#v}"
+            case "$RELEASE_VERSION" in
+              *-alpha|*-alpha.*) NPM_DIST_TAG=alpha ;;
+              *-beta|*-beta.*) NPM_DIST_TAG=beta ;;
+              *-rc|*-rc.*) NPM_DIST_TAG=rc ;;
+              *-*)
+                echo "不支持的预发布版本：$RELEASE_VERSION；仅支持 alpha / beta / rc"
+                exit 1
+                ;;
+              *) NPM_DIST_TAG=latest ;;
+            esac
+          else
+            RELEASE_VERSION="$INPUT_VERSION"
+            NPM_DIST_TAG="$INPUT_NPM_TAG"
+          fi
+
+          echo "RELEASE_VERSION=$RELEASE_VERSION" >> "$GITHUB_ENV"
+          echo "NPM_DIST_TAG=$NPM_DIST_TAG" >> "$GITHUB_ENV"
+          echo "发行参数：$RELEASE_VERSION / npm tag=$NPM_DIST_TAG / event=$EVENT_NAME"
+
+      - name: Release Tag 必须来自 main
+        if: github.event_name == 'release'
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_REF" != 'refs/heads/main' ]]; then
-            echo "publish 模式只能从 main 运行，当前：$GITHUB_REF"
+          git fetch origin main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "Release Tag 必须指向 main 已包含的提交，当前 SHA：$GITHUB_SHA"
             exit 1
           fi
 
@@ -102,13 +133,13 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: narratica-release-${{ inputs.version }}
+          name: narratica-release-${{ github.run_id }}
           path: dist/release/
           if-no-files-found: ignore
           retention-days: 14
 
       - name: 发布内部包并最后发布正式入口
-        if: inputs.mode == 'publish'
+        if: github.event_name == 'release'
         env:
           # 首次创建 npm 包时可临时配置 granular NPM_TOKEN；
           # 包建立并配置 Trusted Publisher 后可删除该 Secret，npm 会优先使用 OIDC。
@@ -116,22 +147,19 @@ jobs:
         run: pnpm run release:publish -- "$RELEASE_VERSION" "$NPM_DIST_TAG"
 
       - name: 从 npm Registry 只安装顶层入口并再次烟测
-        if: inputs.mode == 'publish'
+        if: github.event_name == 'release'
         run: pnpm run release:smoke:registry -- "$RELEASE_VERSION"
 
-      - name: 创建 Git Tag 与 GitHub Release
-        if: inputs.mode == 'publish'
+      - name: 上传发行产物到当前 GitHub Release
+        if: github.event_name == 'release'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
           ENTRY_TGZ=$(node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('dist/release/release-manifest.json','utf8'));const p=m.packages.find(x=>x.entry);if(!p)process.exit(2);process.stdout.write(p.tarball)")
-          RELEASE_FLAGS=(--target "$GITHUB_SHA" --title "Narratica v$RELEASE_VERSION" --generate-notes)
-          if [[ "$RELEASE_VERSION" == *-* ]]; then
-            RELEASE_FLAGS+=(--prerelease)
-          fi
-          gh release create "v$RELEASE_VERSION" \
+          gh release upload "$RELEASE_TAG" \
             "dist/release/$ENTRY_TGZ" \
             "dist/release/release-manifest.json" \
-            "${RELEASE_FLAGS[@]}"
+            --clobber
