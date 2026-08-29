@@ -1,8 +1,15 @@
+import { readFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import {
   DSH_BASE_BUNDLE,
   DSH_WEB_BUNDLE,
   NARRATICA_BUNDLE,
 } from './dsh-baseline.mjs'
+
+const scriptDir = dirname(fileURLToPath(import.meta.url))
+const formalBundlePatchPath = resolve(scriptDir, '../packages/bundle/narratica/cordis.patch.yml')
 
 export const REQUIRED_PROFILE_BUNDLES = Object.freeze([
   DSH_BASE_BUNDLE,
@@ -23,18 +30,6 @@ export const REQUIRED_DSH_HOST_LOADER_IDS = Object.freeze([
   'ui-settings',
 ])
 
-// 这里描述的是对 DSH 暴露的稳定装配契约，不描述入口包内部如何组织 Cordis Fiber。
-// Client 子插件数量、源码路径等内部实现变化，不应让发行/Profile 烟测失效。
-export const REQUIRED_NARRATICA_LOADER_IDS = Object.freeze([
-  'narratica-stories',
-  'narratica-skill-pack',
-  'narratica-providers',
-  'narratica-media',
-  'narratica-production',
-  'narratica-story-tools',
-  'narratica-client',
-])
-
 export const LEGACY_NARRATICA_CLIENT_LOADER_IDS = Object.freeze([
   'narratica-client-runtime',
   'narratica-client-layout',
@@ -46,6 +41,20 @@ export const LEGACY_NARRATICA_CLIENT_LOADER_IDS = Object.freeze([
 
 function loaderIdPattern(id) {
   return new RegExp(`(?:^|\\n)\\s*-\\s*id:\\s*${id}(?:\\s|$)`, 'm')
+}
+
+export async function loadFormalNarraticaLoaderIds() {
+  const patch = await readFile(formalBundlePatchPath, 'utf8')
+  const ids = [...patch.matchAll(/^\s*-\s*id:\s*(narratica-[A-Za-z0-9-]+)\s*$/gm)].map(match => match[1])
+  const unique = [...new Set(ids)]
+
+  if (unique.length !== ids.length) throw new Error('正式 Bundle patch 存在重复 Narratica Loader ID')
+  if (!unique.includes('narratica-client')) throw new Error('正式 Bundle patch 缺少唯一 Narratica Client Loader')
+  for (const legacyId of LEGACY_NARRATICA_CLIENT_LOADER_IDS) {
+    if (unique.includes(legacyId)) throw new Error(`正式 Bundle patch 不应再声明旧 Client Loader：${legacyId}`)
+  }
+
+  return Object.freeze(unique)
 }
 
 export function assertFormalProfileContract(profile, { distribution = false } = {}) {
@@ -82,8 +91,9 @@ export function assertFormalProfileContract(profile, { distribution = false } = 
   }
 }
 
-export function assertComposedConfigContract(dump) {
-  for (const id of [...REQUIRED_DSH_HOST_LOADER_IDS, ...REQUIRED_NARRATICA_LOADER_IDS]) {
+export async function assertComposedConfigContract(dump) {
+  const formalNarraticaLoaderIds = await loadFormalNarraticaLoaderIds()
+  for (const id of [...REQUIRED_DSH_HOST_LOADER_IDS, ...formalNarraticaLoaderIds]) {
     if (!loaderIdPattern(id).test(dump)) {
       throw new Error(`组合配置缺少正式 Loader：${id}`)
     }
@@ -100,7 +110,7 @@ export function assertComposedConfigContract(dump) {
   }
 }
 
-export function assertNarraticaProfileContract({ profile, dump, distribution = false }) {
+export async function assertNarraticaProfileContract({ profile, dump, distribution = false }) {
   assertFormalProfileContract(profile, { distribution })
-  assertComposedConfigContract(dump)
+  await assertComposedConfigContract(dump)
 }
