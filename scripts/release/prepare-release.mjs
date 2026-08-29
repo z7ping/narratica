@@ -21,6 +21,16 @@ const releasePackages = releaseClosure(packages)
 const releaseNames = new Set(releasePackages.map(pkg => pkg.name))
 const stagingRoot = resolve(releaseDir, 'staging')
 
+function releaseReadme(pkg, manifest) {
+  const description = manifest.description ?? 'Narratica 发行闭包中的运行时组件。'
+
+  if (pkg.name === ENTRY_PACKAGE) {
+    return `# Narratica\n\n**心里的故事，陪你做成作品。**\n\nNarratica 是基于 DSH / Cordis 的 AI 原生故事创作与媒体生产工作区，覆盖故事库、小说创作、剧本与分镜、媒体生产等流程。\n\n> 当前仍处于 Alpha / Developer Preview。接口、数据结构和交互可能继续调整。\n\n## 安装\n\n\`\`\`bash\ndsh plugin --profile narratica add @deepseek-ai/dsh-web-app@0.1.1-rc.2 @narratica/narratica@${npmTag}\n\`\`\`\n\n启动：\n\n\`\`\`bash\ndsh --profile narratica\n\`\`\`\n\n## 项目主页\n\n- GitHub: https://github.com/z7ping/narratica\n- npm 顶层入口: https://www.npmjs.com/package/@narratica/narratica\n\n普通用户只需要安装本包；其余 \`@narratica/*\` 包由顶层 Bundle 自动依赖。\n`
+  }
+
+  return `# ${pkg.name}\n\n${description}\n\n> 这是 Narratica 的内部发行组件，不是面向用户的独立安装入口。\n\n普通用户请安装顶层 Bundle：\n\n\`\`\`bash\ndsh plugin --profile narratica add @deepseek-ai/dsh-web-app@0.1.1-rc.2 @narratica/narratica@${npmTag}\n\`\`\`\n\n项目主页：https://github.com/z7ping/narratica\n`
+}
+
 await rm(releaseDir, { recursive: true, force: true })
 await mkdir(stagingRoot, { recursive: true })
 
@@ -65,6 +75,7 @@ for (const pkg of releasePackages) {
     filter: source => !source.split(/[\\/]/).includes('node_modules'),
   })
   await writeFile(resolve(stagedDir, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`)
+  await writeFile(resolve(stagedDir, 'README.md'), releaseReadme(pkg, manifest))
 
   stagedPackages.push({
     name: pkg.name,
