@@ -81,10 +81,14 @@ test('mode-one minimal chain keeps semantic generation, proposed mutation and de
   assert.match(stories, /this\.mutations\.confirmDraft\(input\)/)
 })
 
-test('formal Narratica bundle loads workspace router before mode one surfaces', async () => {
-  const patch = await readFile('packages/bundle/narratica/cordis.patch.yml', 'utf8')
-  const order = ['narratica-client-runtime', 'narratica-client-layout', 'narratica-client-workspace', 'narratica-client-story-library', 'narratica-client-novel', 'narratica-client-director']
-  const indexes = order.map(id => patch.indexOf(`id: ${id}`))
+test('formal Narratica entry mounts workspace router before mode one surfaces', async () => {
+  const entry = await readFile('packages/bundle/narratica/src/client/entry.ts', 'utf8')
+  const listStart = entry.indexOf('const clientPlugins = [')
+  const listEnd = entry.indexOf('] as const', listStart)
+  assert.ok(listStart >= 0 && listEnd > listStart)
+  const list = entry.slice(listStart, listEnd)
+  const order = ['runtimePlugin', 'layoutPlugin', 'workspacePlugin', 'storyLibraryPlugin', 'novelPlugin', 'directorPlugin']
+  const indexes = order.map(name => list.indexOf(name))
   assert.ok(indexes.every((value, index) => value >= 0 && (index === 0 || value > indexes[index - 1])))
 })
 

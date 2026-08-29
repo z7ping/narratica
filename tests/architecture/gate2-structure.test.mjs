@@ -7,10 +7,12 @@ async function readJson(path) {
   return JSON.parse(await readFile(resolve(path), 'utf8'))
 }
 
-test('formal Narratica bundle activates the dedicated stories plugin package directly', async () => {
+test('formal Narratica bundle activates the dedicated stories plugin through the single entry bridge', async () => {
   const patch = await readFile(resolve('packages/bundle/narratica/cordis.patch.yml'), 'utf8')
+  const bridge = await readFile(resolve('packages/bundle/narratica/runtime/plugin-stories.js'), 'utf8')
   assert.match(patch, /id:\s*narratica-stories/)
-  assert.match(patch, /name:\s*['"]?@narratica\/plugin-stories['"]?/)
+  assert.match(patch, /name:\s*['"]?@narratica\/narratica\/runtime\/plugin-stories['"]?/)
+  assert.match(bridge, /@narratica\/plugin-stories/)
 })
 
 test('formal Narratica bundle owns the stories plugin as an explicit dependency', async () => {
