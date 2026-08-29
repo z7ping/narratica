@@ -28,6 +28,7 @@
     "release:smoke:local": "node scripts/release/smoke-release.mjs local",
     "release:smoke:registry": "node scripts/release/smoke-release.mjs registry",
     "release:publish": "node scripts/release/publish-release.mjs",
+    "release:publish:dry-run": "node scripts/release/publish-release.mjs --dry-run",
     "test:architecture": "node --test tests/architecture/*.test.mjs",
     "test:architecture:full": "node --test tests/architecture/*.test.mjs",
     "test:plugin-lifecycle": "node scripts/verify-plugin-lifecycle.mjs",
