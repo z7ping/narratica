@@ -6,13 +6,21 @@ on:
       - published
   workflow_dispatch:
     inputs:
+      mode:
+        description: '操作模式：verify 只验证；resume 仅续发已存在的 published Release'
+        required: true
+        default: verify
+        type: choice
+        options:
+          - verify
+          - resume
       version:
-        description: '仅验证发行产物，例如 0.1.0-alpha.1'
+        description: '发行版本，例如 0.1.0-alpha.1'
         required: true
         default: '0.1.0-alpha.1'
         type: string
       npm_tag:
-        description: '仅验证使用的 npm dist-tag，必须与版本阶段一致'
+        description: 'npm dist-tag，必须与版本阶段一致'
         required: true
         default: alpha
         type: choice
@@ -71,48 +79,104 @@ jobs:
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG_FROM_EVENT: ${{ github.event.release.tag_name }}
+          INPUT_MODE: ${{ inputs.mode }}
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_NPM_TAG: ${{ inputs.npm_tag }}
         run: |
           set -euo pipefail
 
           if [[ "$EVENT_NAME" == 'release' ]]; then
-            if [[ -z "$RELEASE_TAG" || "$RELEASE_TAG" != v* ]]; then
-              echo "GitHub Release Tag 必须使用 v<semver> 形式，当前：${RELEASE_TAG:-<empty>}"
+            if [[ -z "$RELEASE_TAG_FROM_EVENT" || "$RELEASE_TAG_FROM_EVENT" != v* ]]; then
+              echo "GitHub Release Tag 必须使用 v<semver> 形式，当前：${RELEASE_TAG_FROM_EVENT:-<empty>}"
               exit 1
             fi
 
+            RELEASE_TAG="$RELEASE_TAG_FROM_EVENT"
             RELEASE_VERSION="${RELEASE_TAG#v}"
-            case "$RELEASE_VERSION" in
-              *-alpha|*-alpha.*) NPM_DIST_TAG=alpha ;;
-              *-beta|*-beta.*) NPM_DIST_TAG=beta ;;
-              *-rc|*-rc.*) NPM_DIST_TAG=rc ;;
-              *-*)
-                echo "不支持的预发布版本：$RELEASE_VERSION；仅支持 alpha / beta / rc"
-                exit 1
-                ;;
-              *) NPM_DIST_TAG=latest ;;
-            esac
+            SHOULD_PUBLISH=true
           else
             RELEASE_VERSION="$INPUT_VERSION"
-            NPM_DIST_TAG="$INPUT_NPM_TAG"
+            RELEASE_TAG="v$RELEASE_VERSION"
+            case "$INPUT_MODE" in
+              verify) SHOULD_PUBLISH=false ;;
+              resume) SHOULD_PUBLISH=true ;;
+              *)
+                echo "不支持的手工操作模式：${INPUT_MODE:-<empty>}"
+                exit 1
+                ;;
+            esac
           fi
 
+          case "$RELEASE_VERSION" in
+            *-alpha|*-alpha.*) EXPECTED_NPM_DIST_TAG=alpha ;;
+            *-beta|*-beta.*) EXPECTED_NPM_DIST_TAG=beta ;;
+            *-rc|*-rc.*) EXPECTED_NPM_DIST_TAG=rc ;;
+            *-*)
+              echo "不支持的预发布版本：$RELEASE_VERSION；仅支持 alpha / beta / rc"
+              exit 1
+              ;;
+            *) EXPECTED_NPM_DIST_TAG=latest ;;
+          esac
+
+          if [[ "$EVENT_NAME" == 'release' ]]; then
+            NPM_DIST_TAG="$EXPECTED_NPM_DIST_TAG"
+          else
+            NPM_DIST_TAG="$INPUT_NPM_TAG"
+            if [[ "$NPM_DIST_TAG" != "$EXPECTED_NPM_DIST_TAG" ]]; then
+              echo "npm dist-tag 与版本阶段不一致：$RELEASE_VERSION 应使用 $EXPECTED_NPM_DIST_TAG，当前为 $NPM_DIST_TAG"
+              exit 1
+            fi
+          fi
+
+          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
           echo "RELEASE_VERSION=$RELEASE_VERSION" >> "$GITHUB_ENV"
           echo "NPM_DIST_TAG=$NPM_DIST_TAG" >> "$GITHUB_ENV"
-          echo "发行参数：$RELEASE_VERSION / npm tag=$NPM_DIST_TAG / event=$EVENT_NAME"
+          echo "SHOULD_PUBLISH=$SHOULD_PUBLISH" >> "$GITHUB_ENV"
+          echo "发行参数：$RELEASE_VERSION / npm tag=$NPM_DIST_TAG / event=$EVENT_NAME / publish=$SHOULD_PUBLISH"
 
-      - name: Release Tag 必须来自 main
-        if: github.event_name == 'release'
+      - name: 验证正式发布或续发来源
+        if: env.SHOULD_PUBLISH == 'true'
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git fetch origin main:refs/remotes/origin/main
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-            echo "Release Tag 必须指向 main 已包含的提交，当前 SHA：$GITHUB_SHA"
+
+          if [[ "$GITHUB_EVENT_NAME" == 'release' ]]; then
+            if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+              echo "Release Tag 必须指向 main 已包含的提交，当前 SHA：$GITHUB_SHA"
+              exit 1
+            fi
+            exit 0
+          fi
+
+          if [[ "$GITHUB_REF" != 'refs/heads/main' ]]; then
+            echo "手工 resume 只能从 main 分支执行，当前：$GITHUB_REF"
             exit 1
           fi
+
+          MAIN_SHA=$(git rev-parse origin/main)
+          if [[ "$GITHUB_SHA" != "$MAIN_SHA" ]]; then
+            echo "手工 resume 必须使用当前 main 最新提交：run=$GITHUB_SHA main=$MAIN_SHA"
+            exit 1
+          fi
+
+          git fetch --force origin "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          TAG_SHA=$(git rev-list -n 1 "$RELEASE_TAG")
+          if [[ "$TAG_SHA" != "$MAIN_SHA" ]]; then
+            echo "手工 resume 要求 $RELEASE_TAG 精确指向当前 main：tag=$TAG_SHA main=$MAIN_SHA"
+            exit 1
+          fi
+
+          RELEASE_DRAFT=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.draft')
+          if [[ "$RELEASE_DRAFT" != 'false' ]]; then
+            echo "手工 resume 只允许续发已 published 的 GitHub Release：$RELEASE_TAG"
+            exit 1
+          fi
+
+          echo "续发目标验证通过：$RELEASE_TAG -> $MAIN_SHA"
 
       - name: 按锁文件安装依赖
         run: pnpm install --frozen-lockfile
@@ -139,7 +203,7 @@ jobs:
           retention-days: 14
 
       - name: 发布内部包并最后发布正式入口
-        if: github.event_name == 'release'
+        if: env.SHOULD_PUBLISH == 'true'
         env:
           # 首次创建 npm 包时可临时配置 granular NPM_TOKEN；
           # 包建立并配置 Trusted Publisher 后可删除该 Secret，npm 会优先使用 OIDC。
@@ -147,15 +211,14 @@ jobs:
         run: pnpm run release:publish -- "$RELEASE_VERSION" "$NPM_DIST_TAG"
 
       - name: 从 npm Registry 只安装顶层入口并再次烟测
-        if: github.event_name == 'release'
+        if: env.SHOULD_PUBLISH == 'true'
         run: pnpm run release:smoke:registry -- "$RELEASE_VERSION"
 
       - name: 上传发行产物到当前 GitHub Release
-        if: github.event_name == 'release'
+        if: env.SHOULD_PUBLISH == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
           ENTRY_TGZ=$(node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('dist/release/release-manifest.json','utf8'));const p=m.packages.find(x=>x.entry);if(!p)process.exit(2);process.stdout.write(p.tarball)")
