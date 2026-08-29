@@ -12,7 +12,7 @@ import {
 } from './release-packages.mjs'
 
 const plan = JSON.parse(await readFile(resolve(releaseDir, 'release-plan.json'), 'utf8'))
-const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
+const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -85,7 +85,13 @@ const results = []
 for (const pkg of plan.packages) {
   const before = new Set((await readdir(releaseDir)).filter(name => name.endsWith('.tgz')))
   const packageDir = resolve(repoRoot, pkg.path)
-  run(pnpm, ['pack', '--pack-destination', releaseDir], { cwd: packageDir })
+
+  // release:prepare 会把工作区 manifest 临时改写为真实发行态；此时它们天然
+  // 与仓库 pnpm-lock.yaml 不一致。pnpm 11 在 CI 中执行 pack 时会因此触发
+  // frozen-lockfile 校验。这里仅负责封装已构建文件，不应再次进行依赖安装，
+  // 所以使用 npm pack，并禁用生命周期脚本，保持锁文件安装门禁仍由前置步骤负责。
+  run(npm, ['pack', '--ignore-scripts', '--pack-destination', releaseDir], { cwd: packageDir })
+
   const after = (await readdir(releaseDir)).filter(name => name.endsWith('.tgz') && !before.has(name))
   if (after.length !== 1) throw new Error(`${pkg.name} 应生成一个 tarball，实际：${after.join(', ') || '无'}`)
 
