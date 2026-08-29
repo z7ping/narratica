@@ -22,6 +22,16 @@ const ENTRY_RUNTIME_FILES = Object.freeze([
   'runtime/story-tools.js',
   'runtime/story-tools-model-policy.js',
 ])
+const ENTRY_BUILTIN_FILES = Object.freeze([
+  'builtin/novel/manifest.json',
+  'builtin/novel/skills/24-novel-director/SKILL.md',
+  'builtin/screenplay/skills/00-novel-to-short-drama/SKILL.md',
+  'builtin/drama/skills/00-short-drama-director/SKILL.md',
+])
+
+if (plan.packages.length !== 1 || plan.packages[0]?.name !== ENTRY_PACKAGE || plan.packages[0]?.entry !== true) {
+  throw new Error(`正式发行必须且只能包含入口包 ${ENTRY_PACKAGE}`)
+}
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -62,6 +72,10 @@ function packedManifest(tarball) {
   return JSON.parse(content)
 }
 
+function packedFile(tarball, file) {
+  return run('tar', ['-xOzf', tarball, `package/${file}`])
+}
+
 function assertPackedPackage(pkg, manifest, files) {
   if (manifest.name !== pkg.name) throw new Error(`${pkg.name} tarball 包名错误：${manifest.name}`)
   if (manifest.version !== plan.version) throw new Error(`${pkg.name} tarball 版本错误：${manifest.version}`)
@@ -72,9 +86,9 @@ function assertPackedPackage(pkg, manifest, files) {
   if (!files.has('README.md')) throw new Error(`${pkg.name} tarball 缺少 README.md`)
 
   for (const field of dependencyFields) {
-    for (const [name, range] of Object.entries(manifest[field] ?? {})) {
-      if (name.startsWith('@narratica/') && range !== plan.version) {
-        throw new Error(`${pkg.name} 的 ${field}.${name} 未锁到 ${plan.version}：${range}`)
+    for (const name of Object.keys(manifest[field] ?? {})) {
+      if (name.startsWith('@narratica/')) {
+        throw new Error(`${pkg.name} 的发行态 ${field} 仍依赖内部包：${name}`)
       }
     }
   }
@@ -86,6 +100,7 @@ function assertPackedPackage(pkg, manifest, files) {
   if (pkg.name === ENTRY_PACKAGE) {
     requiredFiles.add('cordis.patch.yml')
     for (const file of ENTRY_RUNTIME_FILES) requiredFiles.add(file)
+    for (const file of ENTRY_BUILTIN_FILES) requiredFiles.add(file)
   }
 
   for (const file of requiredFiles) {
@@ -112,6 +127,16 @@ for (const pkg of plan.packages) {
   const manifest = packedManifest(tarballPath)
   const files = archiveFiles(tarballPath)
   assertPackedPackage(pkg, manifest, files)
+
+  if (pkg.name === ENTRY_PACKAGE) {
+    for (const file of ENTRY_RUNTIME_FILES) {
+      const runtime = packedFile(tarballPath, file)
+      if (runtime.includes("from '@narratica/") || runtime.includes('from "@narratica/')) {
+        throw new Error(`${ENTRY_PACKAGE} 的 ${file} 仍存在内部 npm import，未真正内联`)
+      }
+    }
+  }
+
   const sha256 = createHash('sha256').update(await readFile(tarballPath)).digest('hex')
   const { packPath, ...releasePackage } = pkg
 
@@ -130,4 +155,4 @@ const manifest = {
   packages: results,
 }
 await writeFile(resolve(releaseDir, 'release-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
-console.log(`真实 tarball 门禁通过：${results.length} 个发行包`)
+console.log('真实 tarball 门禁通过：1 个正式发行包')
