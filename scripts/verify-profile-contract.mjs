@@ -25,7 +25,7 @@ if (result.status !== 0) {
 
 const dump = `${result.stdout ?? ''}${result.stderr ?? ''}`
 const profile = JSON.parse(await readFile(profilePackagePath, 'utf8'))
-assertNarraticaProfileContract({ profile, dump, distribution })
+await assertNarraticaProfileContract({ profile, dump, distribution })
 
 if (outputPath) await writeFile(outputPath, dump)
 console.log(`正式 Profile 契约通过：${profilePackagePath}`)
