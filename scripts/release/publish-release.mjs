@@ -17,6 +17,7 @@ const [versionArg, tagArg] = rawArgs.filter(arg => arg !== '--dry-run')
 const version = validateVersion(versionArg ?? '')
 const npmTag = validateDistTag(version, tagArg ?? '')
 const manifest = JSON.parse(await readFile(resolve(releaseDir, 'release-manifest.json'), 'utf8'))
+const registryBase = (process.env.NPM_CONFIG_REGISTRY?.trim() || 'https://registry.npmjs.org').replace(/\/+$/, '')
 
 if (manifest.version !== version || manifest.npmTag !== npmTag) {
   throw new Error(`发布参数与 release-manifest 不一致：${version}/${npmTag} != ${manifest.version}/${manifest.npmTag}`)
@@ -39,20 +40,51 @@ function run(command, args, options = {}) {
   return (result.stdout ?? '').trim()
 }
 
-function runNpmView(args) {
-  const result = spawnSync('npm', ['view', ...args, '--json'], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-    env: process.env,
-  })
-  if (result.error) throw result.error
-  if (result.status === 0) {
-    const text = result.stdout.trim()
-    return { exists: true, value: text ? JSON.parse(text) : null }
+function registryUrl(pkgName, pkgVersion = null) {
+  const path = pkgVersion
+    ? `${encodeURIComponent(pkgName)}/${encodeURIComponent(pkgVersion)}`
+    : encodeURIComponent(pkgName)
+  return `${registryBase}/${path}?narratica_cache_bust=${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+async function registryLookup(pkgName, pkgVersion = null) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15_000)
+  let response
+  try {
+    response = await fetch(registryUrl(pkgName, pkgVersion), {
+      headers: {
+        accept: 'application/json',
+        'cache-control': 'no-cache, no-store, max-age=0',
+        pragma: 'no-cache',
+      },
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error(`npm Registry 查询超时：${pkgName}${pkgVersion ? `@${pkgVersion}` : ''}`)
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
   }
-  const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
-  if (/E404|404 Not Found/i.test(output)) return { exists: false, value: null }
-  throw new Error(`npm view ${args.join(' ')} 失败 (${result.status})\n${output}`)
+
+  if (response.status === 404) return { exists: false, value: null }
+  if (!response.ok) {
+    const body = await response.text()
+    throw new Error(`npm Registry 查询失败：${pkgName}${pkgVersion ? `@${pkgVersion}` : ''} -> HTTP ${response.status}\n${body}`)
+  }
+
+  return { exists: true, value: await response.json() }
+}
+
+function registryIntegrity(lookup, pkgName) {
+  const integrity = lookup.value?.dist?.integrity
+  if (typeof integrity !== 'string' || !integrity.startsWith('sha512-')) {
+    throw new Error(`npm 返回了无法识别的 integrity：${pkgName}@${version} -> ${JSON.stringify(integrity)}`)
+  }
+  return integrity
 }
 
 async function tarballIntegrity(tarball) {
@@ -63,10 +95,10 @@ async function tarballIntegrity(tarball) {
 async function inspectPackage(pkg) {
   const tarball = resolve(releaseDir, pkg.tarball)
   const localIntegrity = await tarballIntegrity(tarball)
-  const registry = runNpmView([`${pkg.name}@${version}`, 'dist.integrity'])
+  const registry = await registryLookup(pkg.name, version)
 
   if (!registry.exists) {
-    const packageLookup = runNpmView([pkg.name, 'name'])
+    const packageLookup = await registryLookup(pkg.name)
     return {
       pkg,
       tarball,
@@ -76,10 +108,8 @@ async function inspectPackage(pkg) {
     }
   }
 
-  if (typeof registry.value !== 'string' || !registry.value.startsWith('sha512-')) {
-    throw new Error(`npm 返回了无法识别的 integrity：${pkg.name}@${version} -> ${JSON.stringify(registry.value)}`)
-  }
-  if (registry.value !== localIntegrity) {
+  const remoteIntegrity = registryIntegrity(registry, pkg.name)
+  if (remoteIntegrity !== localIntegrity) {
     throw new Error(`npm 已存在 ${pkg.name}@${version}，但内容与本次发行 tarball 不一致，拒绝跳过或覆盖`)
   }
 
@@ -93,17 +123,29 @@ async function inspectPackage(pkg) {
 }
 
 async function waitForPublishedIntegrity(state) {
-  for (let attempt = 1; attempt <= 12; attempt += 1) {
-    const registry = runNpmView([`${state.pkg.name}@${version}`, 'dist.integrity'])
+  const startedAt = Date.now()
+  const deadline = startedAt + 5 * 60_000
+  let attempt = 0
+
+  while (Date.now() <= deadline) {
+    attempt += 1
+    const registry = await registryLookup(state.pkg.name, version)
     if (registry.exists) {
-      if (registry.value !== state.localIntegrity) {
+      const remoteIntegrity = registryIntegrity(registry, state.pkg.name)
+      if (remoteIntegrity !== state.localIntegrity) {
         throw new Error(`npm Registry 中 ${state.pkg.name}@${version} 的 integrity 与本地产物不一致`)
       }
+      const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000)
+      console.log(`Registry 已确认：${state.pkg.name}@${version}（${elapsedSeconds}s）`)
       return
     }
-    if (attempt < 12) await new Promise(resolvePromise => setTimeout(resolvePromise, 5000))
+
+    const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000)
+    console.log(`等待 npm Registry 可见：${state.pkg.name}@${version}（${elapsedSeconds}s / 300s，第 ${attempt} 次）`)
+    if (Date.now() <= deadline) await new Promise(resolvePromise => setTimeout(resolvePromise, 10_000))
   }
-  throw new Error(`npm publish 已返回成功，但 60 秒内仍无法从 Registry 验证 ${state.pkg.name}@${version}`)
+
+  throw new Error(`npm publish 已返回成功，但 5 分钟内仍无法从 Registry 验证 ${state.pkg.name}@${version}`)
 }
 
 if (dryRun) {
