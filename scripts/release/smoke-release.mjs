@@ -28,11 +28,19 @@ const logPath = resolve(releaseDir, `smoke-${mode}.log`)
 const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 const commandShell = process.platform === 'win32'
 
+function localTarballSpec(pkg) {
+  return `file:${resolve(releaseDir, pkg.tarball)}`
+}
+
 await rm(tempRoot, { recursive: true, force: true })
 await mkdir(profileDir, { recursive: true })
 
-const workspacePolicy = `allowBuilds:\n  esbuild: true\n  node-pty: true\n  koffi: true\n  '@deepseek-ai/dsh-subprocess-local@${DSH_VERSION}': true\n  '@google/genai': false\n  protobufjs: false\n  node-addon-require-builtin: false\n`
-await writeFile(resolve(profileDir, 'pnpm-workspace.yaml'), workspacePolicy)
+const localOverrides = mode === 'local'
+  ? `overrides:\n${releaseManifest.packages.map(pkg => `  ${JSON.stringify(pkg.name)}: ${JSON.stringify(localTarballSpec(pkg))}`).join('\n')}\n`
+  : ''
+const workspacePolicy = `allowBuilds:\n  esbuild: true\n  node-pty: true\n  koffi: true\n  '@deepseek-ai/dsh-subprocess-local@${DSH_VERSION}': true\n  '@google/genai': false\n  protobufjs: false\n  node-addon-require-builtin: false\n${localOverrides}`
+const workspacePolicyPath = resolve(profileDir, 'pnpm-workspace.yaml')
+await writeFile(workspacePolicyPath, workspacePolicy)
 
 const env = {
   ...process.env,
@@ -75,21 +83,14 @@ async function addRegistryEntry(spec) {
   throw lastError
 }
 
-function localTarballSpec(pkg) {
-  return `file:${resolve(releaseDir, pkg.tarball)}`
-}
-
 add(`@deepseek-ai/dsh-web-app@${DSH_VERSION}`)
 
 if (mode === 'local') {
   const profile = JSON.parse(await readFile(profilePackagePath, 'utf8'))
   profile.dependencies ??= {}
-  profile.pnpm ??= {}
-  profile.pnpm.overrides ??= {}
 
-  for (const pkg of releaseManifest.packages) {
-    profile.pnpm.overrides[pkg.name] = localTarballSpec(pkg)
-    if (!pkg.entry) profile.dependencies[pkg.name] = localTarballSpec(pkg)
+  for (const pkg of releaseManifest.packages.filter(item => !item.entry)) {
+    profile.dependencies[pkg.name] = localTarballSpec(pkg)
   }
 
   await writeFile(profilePackagePath, `${JSON.stringify(profile, null, 2)}\n`)
@@ -115,11 +116,10 @@ if (narraticaBundles.length !== 1 || narraticaBundles[0] !== ENTRY_PACKAGE) {
 }
 
 if (mode === 'local') {
-  const overrides = profile.pnpm?.overrides ?? {}
+  const policy = await readFile(workspacePolicyPath, 'utf8')
   for (const pkg of releaseManifest.packages) {
-    if (overrides[pkg.name] !== localTarballSpec(pkg)) {
-      throw new Error(`本地 tarball 烟测缺少依赖覆盖：${pkg.name}`)
-    }
+    const override = `${JSON.stringify(pkg.name)}: ${JSON.stringify(localTarballSpec(pkg))}`
+    if (!policy.includes(override)) throw new Error(`本地 tarball 烟测缺少依赖覆盖：${pkg.name}`)
     if (!pkg.entry && !(pkg.name in dependencies)) {
       throw new Error(`本地 tarball 烟测缺少内部依赖：${pkg.name}`)
     }
