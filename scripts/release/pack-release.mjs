@@ -13,6 +13,15 @@ import {
 
 const plan = JSON.parse(await readFile(resolve(releaseDir, 'release-plan.json'), 'utf8'))
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+const ENTRY_RUNTIME_FILES = Object.freeze([
+  'runtime/plugin-stories.js',
+  'runtime/plugin-skill-pack.js',
+  'runtime/plugin-providers.js',
+  'runtime/plugin-media.js',
+  'runtime/plugin-production.js',
+  'runtime/story-tools.js',
+  'runtime/story-tools-model-policy.js',
+])
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -60,6 +69,7 @@ function assertPackedPackage(pkg, manifest, files) {
   if (manifest.license !== 'MIT') throw new Error(`${pkg.name} tarball 缺少 MIT license 元数据`)
   if (manifest.repository?.url !== REPOSITORY_URL) throw new Error(`${pkg.name} 缺少正确 repository.url`)
   if (JSON.stringify(manifest).includes('workspace:')) throw new Error(`${pkg.name} tarball 残留 workspace: 依赖`)
+  if (!files.has('README.md')) throw new Error(`${pkg.name} tarball 缺少 README.md`)
 
   for (const field of dependencyFields) {
     for (const [name, range] of Object.entries(manifest[field] ?? {})) {
@@ -73,7 +83,10 @@ function assertPackedPackage(pkg, manifest, files) {
   if (typeof manifest.main === 'string') requiredFiles.add(manifest.main.replace(/^\.\//, ''))
   if (typeof manifest.types === 'string') requiredFiles.add(manifest.types.replace(/^\.\//, ''))
   collectExportFiles(manifest.exports, requiredFiles)
-  if (pkg.name === ENTRY_PACKAGE) requiredFiles.add('cordis.patch.yml')
+  if (pkg.name === ENTRY_PACKAGE) {
+    requiredFiles.add('cordis.patch.yml')
+    for (const file of ENTRY_RUNTIME_FILES) requiredFiles.add(file)
+  }
 
   for (const file of requiredFiles) {
     if (file === 'package.json') continue

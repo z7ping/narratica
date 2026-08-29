@@ -2,16 +2,23 @@
 # Narratica 作为标准树外 DSH Bundle 运行，不关闭、不替换 DSH 原有
 # Layout / Sidebar / Settings / Conversation 等宿主能力。
 #
+# Narratica Host 插件统一经 @narratica/narratica/runtime/* 桥接加载：
+# DSH 从 Profile 根目录只需解析一个正式入口包，桥接模块再从入口包自己的
+# dependencies 解析内部实现包，避免 pnpm 严格依赖布局下传递依赖不可见。
+#
+# Client 同样只暴露 @narratica/narratica 一个 Loader row；入口包自己的
+# dsh.client + ./client 会在浏览器侧挂载六个独立 Cordis Client Fiber。
+#
 # Client 通过 sidebar.footer.action 提供固定入口，并利用 DSH 官方
 # conversation single-slot priority shadowing 临时显示完整 Narratica Workspace；
 # 退出时释放 Narratica 注册，原 Conversation 自动恢复。
 
 - insert:
     - id: narratica-stories
-      name: '@narratica/plugin-stories'
+      name: '@narratica/narratica/runtime/plugin-stories'
 
     - id: narratica-skill-pack
-      name: '@narratica/plugin-skill-pack'
+      name: '@narratica/narratica/runtime/plugin-skill-pack'
       config:
         # 显式外部 Skill Pack 优先；未设置时插件使用随包运行子集。
         novelRoot: !!js process.env.NARRATICA_NOVEL_SKILL_PACK_ROOT
@@ -53,7 +60,7 @@
     # - Ark：配置模型后必须提供 ARK_API_KEY；图片/视频结果立即下载到本地 Media Root。
     # - FFmpeg：必须显式启用且启动时探测 ffmpeg -version 成功才注册。
     - id: narratica-providers
-      name: '@narratica/plugin-providers'
+      name: '@narratica/narratica/runtime/plugin-providers'
       config:
         mediaRoot: !!js process.env.NARRATICA_MEDIA_ROOT
         arkApiKey: !!js process.env.ARK_API_KEY
@@ -70,10 +77,10 @@
         ffmpegBin: !!js process.env.NARRATICA_FFMPEG_BIN
 
     - id: narratica-media
-      name: '@narratica/plugin-media'
+      name: '@narratica/narratica/runtime/plugin-media'
 
     - id: narratica-production
-      name: '@narratica/plugin-production'
+      name: '@narratica/narratica/runtime/plugin-production'
       inject:
         - narraticaProviders
         - narraticaMedia
@@ -82,27 +89,14 @@
     # DSH Agent：小说、剧本前期、媒体生产三个领域按当前 Director 路由注册到确切
     # Agent scope；候选采用、音频决定、定稿与最终交付确认能力不注册给模型。
     - id: narratica-story-tools
-      name: '@narratica/story-tools'
+      name: '@narratica/narratica/runtime/story-tools'
 
     # Director 语言模型策略同样只作用于确切 Agent scope。固定模型通过 DSH
     # installModelSelection 覆盖本轮请求，不调用 session.selectModel，也不修改宿主默认模型。
     - id: narratica-director-model-policy
-      name: '@narratica/story-tools/model-policy'
+      name: '@narratica/narratica/runtime/story-tools-model-policy'
 
-    - id: narratica-client-runtime
-      name: '@narratica/client-runtime'
-
-    - id: narratica-client-layout
-      name: '@narratica/client-layout'
-
-    - id: narratica-client-workspace
-      name: '@narratica/client-workspace'
-
-    - id: narratica-client-story-library
-      name: '@narratica/client-story-library'
-
-    - id: narratica-client-novel
-      name: '@narratica/client-novel'
-
-    - id: narratica-client-director
-      name: '@narratica/client-director'
+    # 唯一 Narratica Client Loader row。浏览器插件元数据与 ./client 都来自正式入口包，
+    # 入口 Client 再以独立 Fiber 挂载 runtime/layout/workspace/library/novel/director。
+    - id: narratica-client
+      name: '@narratica/narratica'

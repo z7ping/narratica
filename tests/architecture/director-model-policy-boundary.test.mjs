@@ -45,7 +45,7 @@ test('固定策略只覆盖 Director Agent 请求，自动策略保持宿主行�
   assert.match(modelPolicy, /provider: selected\.provider/)
   assert.match(modelPolicy, /model: selected\.model/)
   assert.match(modelPolicy, /reasoningEffort/)
-  assert.match(providerPatch, /@narratica\/story-tools\/model-policy/)
+  assert.match(providerPatch, /@narratica\/narratica\/runtime\/story-tools-model-policy/)
 })
 
 test('Settings scope 卸载后不会保留失效引用', () => {

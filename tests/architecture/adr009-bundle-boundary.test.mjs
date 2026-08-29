@@ -23,6 +23,16 @@ const formalNarraticaDependencies = [
   '@narratica/client-director',
 ]
 
+const formalHostRuntimeBridges = [
+  'plugin-stories',
+  'plugin-skill-pack',
+  'plugin-providers',
+  'plugin-media',
+  'plugin-production',
+  'story-tools',
+  'story-tools-model-policy',
+]
+
 test('ADR-009 exposes one formal top-level Narratica bundle', async () => {
   const bundle = await readJson('packages/bundle/narratica/package.json')
   assert.equal(bundle.name, NARRATICA_BUNDLE)
@@ -42,15 +52,22 @@ test('ADR-009 exposes one formal top-level Narratica bundle', async () => {
   }
 })
 
-test('formal Bundle patch rows and Narratica dependency surface stay aligned', async () => {
+test('formal Bundle resolves Host rows through entry bridges and exposes one Client loader row', async () => {
   const bundle = await readJson('packages/bundle/narratica/package.json')
   const patch = await readFile('packages/bundle/narratica/cordis.patch.yml', 'utf8')
-  const patchPackages = [...patch.matchAll(/name:\s*'(@narratica\/[^']+)'/g)].map(match => match[1])
+  assert.equal(bundle.exports['./runtime/*'], './runtime/*.js')
+  assert.equal(bundle.exports['./client'], './lib/client.js')
+  assert.ok(bundle.files.includes('runtime'))
+  assert.ok(bundle.files.includes('lib'))
 
-  const directPackageNames = [...new Set(patchPackages.map((name) => (
-    name === '@narratica/story-tools/model-policy' ? '@narratica/story-tools' : name
-  )))]
-  assert.deepEqual(directPackageNames.sort(), Object.keys(bundle.dependencies).sort())
+  for (const bridge of formalHostRuntimeBridges) {
+    assert.match(patch, new RegExp(`name: '@narratica/narratica/runtime/${bridge}'`))
+  }
+  assert.match(patch, /- id: narratica-client\n\s+name: '@narratica\/narratica'/)
+
+  for (const dependency of formalNarraticaDependencies) {
+    assert.doesNotMatch(patch, new RegExp(`name: '${dependency.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:/model-policy)?'`))
+  }
   assert.match(patch, /name:\s*'@deepseek-ai\/dsh-skill-filesystem'/)
 })
 
@@ -74,7 +91,7 @@ test('formal Narratica bundle never disables or replaces DSH product surfaces', 
   assert.doesNotMatch(patch, /@narratica\/bundle-(?:core|production|app)/)
 })
 
-test('formal Narratica bundle composes Host, Director infrastructure and Client rows explicitly', async () => {
+test('formal Narratica bundle composes Host, Director infrastructure and one aggregate Client row explicitly', async () => {
   const patch = await readFile('packages/bundle/narratica/cordis.patch.yml', 'utf8')
 
   for (const row of [
@@ -85,24 +102,29 @@ test('formal Narratica bundle composes Host, Director infrastructure and Client 
     'narratica-providers',
     'narratica-media',
     'narratica-production',
+    'narratica-client',
+  ]) {
+    assert.match(patch, new RegExp(`- id: ${row}`))
+  }
+
+  for (const legacyClientRow of [
     'narratica-client-runtime',
     'narratica-client-layout',
     'narratica-client-workspace',
     'narratica-client-story-library',
     'narratica-client-novel',
     'narratica-client-director',
-  ]) {
-    assert.match(patch, new RegExp(`- id: ${row}`))
-  }
+  ]) assert.doesNotMatch(patch, new RegExp(`- id: ${legacyClientRow}`))
 
-  assert.match(patch, /name: '@narratica\/story-tools'/)
+  assert.match(patch, /name: '@narratica\/narratica\/runtime\/story-tools'/)
   assert.match(patch, /name: '@deepseek-ai\/dsh-skill-filesystem'/)
   assert.match(patch, /providerName: narratica-novel/)
   assert.match(patch, /includeDefaultRoots: false/)
   assert.match(patch, /ctx\.narraticaSkillPack\.skillDirs\('novel'\)/)
 
   // DSH does not apply dependency bundle patches transitively. The formal
-  // top-level bundle therefore owns every row it activates directly.
+  // top-level bundle therefore owns every row it activates directly. Host
+  // rows bridge through its runtime subpaths; Client is aggregated by itself.
   assert.doesNotMatch(patch, /@narratica\/bundle-(?:core|production|app)/)
 })
 
