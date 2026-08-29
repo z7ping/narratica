@@ -1,5 +1,5 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { relative } from 'node:path'
+import { cp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { relative, resolve } from 'node:path'
 
 import {
   ENTRY_PACKAGE,
@@ -19,10 +19,12 @@ const npmTag = validateDistTag(version, tagArg ?? '')
 const packages = await loadWorkspacePackages()
 const releasePackages = releaseClosure(packages)
 const releaseNames = new Set(releasePackages.map(pkg => pkg.name))
+const stagingRoot = resolve(releaseDir, 'staging')
 
 await rm(releaseDir, { recursive: true, force: true })
-await mkdir(releaseDir, { recursive: true })
+await mkdir(stagingRoot, { recursive: true })
 
+const stagedPackages = []
 for (const pkg of releasePackages) {
   const manifest = structuredClone(pkg.manifest)
   manifest.version = version
@@ -53,7 +55,23 @@ for (const pkg of releasePackages) {
     }
   }
 
-  await writeFile(pkg.manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+  // 发行态 package.json 与开发态 workspace manifest 的依赖结构不同。
+  // 不直接改写源码目录，否则 pnpm 11 会在后续 pnpm run / pnpm exec 时
+  // 把这种有意的临时差异判定为 frozen-lockfile 漂移。
+  const stagedDir = resolve(stagingRoot, pkg.relativeDir)
+  await mkdir(stagedDir, { recursive: true })
+  await cp(pkg.dir, stagedDir, {
+    recursive: true,
+    filter: source => !source.split(/[\\/]/).includes('node_modules'),
+  })
+  await writeFile(resolve(stagedDir, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`)
+
+  stagedPackages.push({
+    name: pkg.name,
+    path: relative(repoRoot, pkg.dir).replaceAll('\\', '/'),
+    packPath: relative(repoRoot, stagedDir).replaceAll('\\', '/'),
+    entry: pkg.name === ENTRY_PACKAGE,
+  })
 }
 
 const plan = {
@@ -61,11 +79,7 @@ const plan = {
   npmTag,
   entryPackage: ENTRY_PACKAGE,
   repository: REPOSITORY_URL,
-  packages: releasePackages.map(pkg => ({
-    name: pkg.name,
-    path: relative(repoRoot, pkg.dir).replaceAll('\\', '/'),
-    entry: pkg.name === ENTRY_PACKAGE,
-  })),
+  packages: stagedPackages,
 }
 
 await writeFile(`${releaseDir}/release-plan.json`, `${JSON.stringify(plan, null, 2)}\n`)
