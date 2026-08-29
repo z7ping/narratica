@@ -1,0 +1,68 @@
+name: Registry 运行时诊断
+
+on:
+  push:
+    branches:
+      - fix/release-registry-runtime-smoke
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+
+jobs:
+  diagnose:
+    name: 从 npm Registry 安装并启动 DSH Web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: 配置 pnpm 11.7.0
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+          run_install: false
+
+      - name: 配置 Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: 按锁文件安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 构建发行产物
+        run: pnpm run build
+
+      - name: 生成 alpha.1 发行清单
+        run: pnpm run release:prepare -- 0.1.0-alpha.1 alpha
+
+      - name: 生成 alpha.1 本地产物清单
+        run: pnpm run release:pack
+
+      - name: 从 npm Registry 匿名安装并启动 DSH Web
+        id: smoke
+        continue-on-error: true
+        run: pnpm run release:smoke:registry -- 0.1.0-alpha.1
+
+      - name: 上传 Registry DSH Web 启动日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: narratica-registry-runtime-diagnostic
+          path: dist/release/smoke-registry.log
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: 保留烟测失败状态
+        if: steps.smoke.outcome == 'failure'
+        run: exit 1
