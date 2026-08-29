@@ -150,8 +150,15 @@ jobs:
 
       - name: 确认 DSH 宿主与 Narratica 插件同时进入组合配置
         run: |
-          for plugin in ui-layout ui-sidebar ui-conversation ui-settings narratica-stories narratica-skill-pack narratica-providers narratica-media narratica-production narratica-client-runtime narratica-client-layout narratica-client-workspace narratica-client-story-library narratica-client-novel narratica-client-director; do
-            grep -q "$plugin" "$RUNNER_TEMP/narratica-dump-config.txt"
+          for plugin in ui-layout ui-sidebar ui-conversation ui-settings narratica-stories narratica-skill-pack narratica-providers narratica-media narratica-production narratica-story-tools narratica-client; do
+            grep -q -- "- id: $plugin" "$RUNNER_TEMP/narratica-dump-config.txt"
+          done
+          grep -q "name: '@narratica/narratica'" "$RUNNER_TEMP/narratica-dump-config.txt"
+          for legacy_client in narratica-client-runtime narratica-client-layout narratica-client-workspace narratica-client-story-library narratica-client-novel narratica-client-director; do
+            if grep -q -- "- id: $legacy_client" "$RUNNER_TEMP/narratica-dump-config.txt"; then
+              echo "正式 Profile 不应再包含旧 Client Loader row: $legacy_client"
+              exit 1
+            fi
           done
 
       - name: 验证模式一 Story Repository 与 Skill Provider 探针
