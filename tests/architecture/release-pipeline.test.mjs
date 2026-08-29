@@ -17,7 +17,7 @@ const releaseScripts = [
   'scripts/release/publish-release.mjs',
 ]
 
-const runtimeBridges = Object.freeze([
+const hostRuntimeBridges = Object.freeze([
   ['plugin-stories', '@narratica/plugin-stories'],
   ['plugin-skill-pack', '@narratica/plugin-skill-pack'],
   ['plugin-providers', '@narratica/plugin-providers'],
@@ -25,13 +25,20 @@ const runtimeBridges = Object.freeze([
   ['plugin-production', '@narratica/plugin-production'],
   ['story-tools', '@narratica/story-tools'],
   ['story-tools-model-policy', '@narratica/story-tools/model-policy'],
-  ['client-runtime', '@narratica/client-runtime'],
-  ['client-layout', '@narratica/client-layout'],
-  ['client-workspace', '@narratica/client-workspace'],
-  ['client-story-library', '@narratica/client-story-library'],
-  ['client-novel', '@narratica/client-novel'],
-  ['client-director', '@narratica/client-director'],
 ])
+
+const internalClientPackages = Object.freeze([
+  '@narratica/client-runtime',
+  '@narratica/client-layout',
+  '@narratica/client-workspace',
+  '@narratica/client-story-library',
+  '@narratica/client-novel',
+  '@narratica/client-director',
+])
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
 
 test('正式发布由 GitHub Release published 触发，手工入口默认只 verify 且仅显式 resume 可续发', async () => {
   const workflow = await readFile('.github/workflows/release.yml', 'utf8')
@@ -41,6 +48,7 @@ test('正式发布由 GitHub Release published 触发，手工入口默认只 ve
   assert.match(workflow, /mode:\n        description: '操作模式：verify 只验证；resume 仅续发已存在的 published Release'/)
   assert.match(workflow, /default: verify/)
   assert.match(workflow, /options:\n          - verify\n          - resume/)
+  assert.match(workflow, /default: '0\.1\.0-alpha\.2'/)
   assert.doesNotMatch(workflow, /default: publish/)
   assert.match(workflow, /verify\) SHOULD_PUBLISH=false/)
   assert.match(workflow, /resume\) SHOULD_PUBLISH=true/)
@@ -81,6 +89,8 @@ test('Release 必须先完整门禁、真实 pack、本地烟测，再发布、r
     assert.ok(next > cursor, `Release 步骤顺序错误或缺失：${marker}`)
     cursor = next
   }
+  assert.match(workflow, /narratica-registry-smoke-/)
+  assert.match(workflow, /smoke-registry\.log/)
   assert.doesNotMatch(workflow, /gh release create/)
 })
 
@@ -105,30 +115,64 @@ test('源码保持不可直接发布，发行包由唯一入口依赖闭包自�
 
   const packages = await loadWorkspacePackages()
   const closure = releaseClosure(packages)
-  assert.ok(closure.length > 1, '正式入口必须带入内部运行时包')
+  assert.equal(closure.length, 17, '当前正式发行闭包必须保持 17 个 @narratica 包')
   assert.equal(closure.at(-1)?.name, ENTRY_PACKAGE, '正式入口必须在发布序列最后')
   for (const pkg of closure) assert.ok(pkg.name.startsWith('@narratica/'))
 })
 
-test('树外 Bundle 的 Narratica 插件只从 Profile 解析正式入口，再由入口桥接内部依赖', async () => {
+test('树外 Bundle 的 Host 插件只从 Profile 解析正式入口，再由入口桥接内部依赖', async () => {
   const entry = JSON.parse(await readFile('packages/bundle/narratica/package.json', 'utf8'))
   const patch = await readFile('packages/bundle/narratica/cordis.patch.yml', 'utf8')
 
   assert.ok(entry.files.includes('runtime'))
-  assert.equal(entry.exports?.['./runtime/*'], './runtime/*.js')
+  assert.equal(entry.exports['./runtime/*'], './runtime/*.js')
 
-  for (const [bridge, target] of runtimeBridges) {
-    assert.match(patch, new RegExp(`name: '@narratica/narratica/runtime/${bridge.replaceAll('-', '\\-')}'`))
+  for (const [bridge, target] of hostRuntimeBridges) {
+    assert.ok(patch.includes(`name: '@narratica/narratica/runtime/${bridge}'`), `patch 缺少 Host bridge: ${bridge}`)
     const source = await readFile(`packages/bundle/narratica/runtime/${bridge}.js`, 'utf8')
-    assert.match(source, new RegExp(target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+    assert.match(source, new RegExp(escapeRegExp(target)))
   }
 
-  for (const target of new Set(runtimeBridges.map(([, target]) => target.split('/model-policy')[0]))) {
-    assert.doesNotMatch(patch, new RegExp(`name: '${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&)}(?:/model-policy)?'`))
+  for (const target of new Set(hostRuntimeBridges.map(([, target]) => target.replace('/model-policy', '')))) {
+    assert.doesNotMatch(patch, new RegExp(`name: '${escapeRegExp(target)}(?:/model-policy)?'`))
   }
 })
 
-test('Release 脚本必须把内部依赖锁到同版本并拒绝 workspace 协议进入 tarball', async () => {
+test('正式入口自身是唯一 Narratica Client loader，并以六个独立 Cordis Fiber 聚合现有实现', async () => {
+  const entry = JSON.parse(await readFile('packages/bundle/narratica/package.json', 'utf8'))
+  const patch = await readFile('packages/bundle/narratica/cordis.patch.yml', 'utf8')
+  const client = await readFile('packages/bundle/narratica/src/client/entry.ts', 'utf8')
+  const root = JSON.parse(await readFile('package.json', 'utf8'))
+
+  assert.equal(entry.exports['./client'], './lib/client.js')
+  assert.equal(entry.dsh.client.platform, 'web')
+  assert.deepEqual(entry.dsh.client.inject, [
+    '@deepseek-ai/dsh-api-remotes',
+    '@deepseek-ai/dsh-client-connection',
+    '@deepseek-ai/dsh-client-runtime',
+    '@deepseek-ai/dsh-client-ui-layout',
+    '@deepseek-ai/dsh-client-ui-sidebar',
+  ])
+  assert.equal((patch.match(/name: '@narratica\/narratica'/g) ?? []).length, 1)
+  assert.match(patch, /- id: narratica-client\n\s+name: '@narratica\/narratica'/)
+  for (const packageName of internalClientPackages) {
+    assert.doesNotMatch(patch, new RegExp(`name: '${escapeRegExp(packageName)}'`))
+  }
+
+  for (const sourcePath of [
+    'client/runtime/src/client/entry.js',
+    'client/layout/src/client/index.js',
+    'client/workspace/src/client/entry.js',
+    'client/story-library/src/client/index.js',
+    'client/novel/src/client/index.js',
+    'client/director/src/client/index.js',
+  ]) assert.ok(client.includes(sourcePath), `入口 Client 缺少子插件：${sourcePath}`)
+
+  assert.match(client, /for \(const plugin of clientPlugins\) await ctx\.plugin\(plugin\)/)
+  assert.match(root.scripts['build:client:bundles'], /packages\/bundle\/narratica @narratica\/narratica/)
+})
+
+test('Release 脚本必须把内部依赖锁到同版本，并为全部 tarball 提供 README', async () => {
   const prepare = await readFile('scripts/release/prepare-release.mjs', 'utf8')
   const pack = await readFile('scripts/release/pack-release.mjs', 'utf8')
   const publish = await readFile('scripts/release/publish-release.mjs', 'utf8')
