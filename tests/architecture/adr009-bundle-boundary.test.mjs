@@ -122,9 +122,6 @@ test('formal Narratica bundle composes Host, Director infrastructure and one agg
   assert.match(patch, /includeDefaultRoots: false/)
   assert.match(patch, /ctx\.narraticaSkillPack\.skillDirs\('novel'\)/)
 
-  // DSH does not apply dependency bundle patches transitively. The formal
-  // top-level bundle therefore owns every row it activates directly. Host
-  // rows bridge through its runtime subpaths; Client is aggregated by itself.
   assert.doesNotMatch(patch, /@narratica\/bundle-(?:core|production|app)/)
 })
 
@@ -179,19 +176,17 @@ test('formal Client layout scopes Narratica CSS away from the DSH host', async (
   assert.doesNotMatch(styles, /(?:^|\n)\*\{box-sizing:border-box\}/)
 })
 
-test('development link workaround stays plain and exposes only the formal Narratica bundle', async () => {
+test('development link workaround stays plain and delegates formal bundle rules to the shared contract', async () => {
   const bootstrap = await readFile('scripts/bootstrap-profile.mjs', 'utf8')
 
-  assert.match(bootstrap, /NARRATICA_BUNDLE/)
   assert.match(bootstrap, /packages\/bundle\/narratica/)
   assert.match(bootstrap, /localProfilePlainDependencies/)
   assert.match(bootstrap, /narraticaBundleDependencies/)
   assert.match(bootstrap, /workaround drifted outside formal Bundle dependencies/)
   assert.match(bootstrap, /must remain a plain dependency, not a Bundle/)
-  assert.match(bootstrap, /Formal Profile must expose exactly one Narratica Bundle/)
+  assert.match(bootstrap, /assertFormalProfileContract\(profilePackage\)/)
   assert.match(bootstrap, /addToProfile\(narraticaBundleDir\)/)
   assert.doesNotMatch(bootstrap, /addToProfile\(coreBundleDir\)/)
   assert.doesNotMatch(bootstrap, /addToProfile\(productionBundleDir\)/)
   assert.doesNotMatch(bootstrap, /addToProfile\(appBundleDir\)/)
-  assert.match(bootstrap, /Formal Narratica profile must not expose legacy bundle/)
 })
