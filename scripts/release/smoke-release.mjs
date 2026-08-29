@@ -41,6 +41,8 @@ function registryPackageUrl(name) {
 await rm(tempRoot, { recursive: true, force: true })
 await mkdir(profileDir, { recursive: true })
 
+// local 模式仍把内部版本解析到真实本地 tarball，但只作为 pnpm override。
+// Profile 顶层依赖必须与真实用户一致：只有一个 @narratica/narratica。
 const localOverrides = mode === 'local'
   ? `overrides:\n${releaseManifest.packages.map(pkg => `  ${JSON.stringify(pkg.name)}: ${JSON.stringify(localTarballSpec(pkg))}`).join('\n')}\n`
   : ''
@@ -141,16 +143,6 @@ async function addRegistryEntry(spec) {
 add(`@deepseek-ai/dsh-web-app@${DSH_VERSION}`)
 
 if (mode === 'local') {
-  const profile = JSON.parse(await readFile(profilePackagePath, 'utf8'))
-  profile.dependencies ??= {}
-
-  for (const pkg of releaseManifest.packages.filter(item => !item.entry)) {
-    profile.dependencies[pkg.name] = localTarballSpec(pkg)
-  }
-
-  await writeFile(profilePackagePath, `${JSON.stringify(profile, null, 2)}\n`)
-  run(['install', '--no-frozen-lockfile'], { cwd: profileDir })
-
   const entry = releaseManifest.packages.find(item => item.name === ENTRY_PACKAGE)
   if (!entry) throw new Error(`release-manifest 缺少入口包：${ENTRY_PACKAGE}`)
   add(resolve(releaseDir, entry.tarball))
@@ -175,13 +167,18 @@ if (narraticaBundles.length !== 1 || narraticaBundles[0] !== ENTRY_PACKAGE) {
   throw new Error(`发行烟测必须只有一个 Narratica Bundle：${narraticaBundles.join(' -> ')}`)
 }
 
+const narraticaDirectDependencies = Object.keys(dependencies).filter(name => name.startsWith('@narratica/'))
+if (narraticaDirectDependencies.length !== 1 || narraticaDirectDependencies[0] !== ENTRY_PACKAGE) {
+  throw new Error(`发行烟测 Profile 顶层只能依赖正式入口包：${narraticaDirectDependencies.join(' -> ') || '无'}`)
+}
+
 if (mode === 'local') {
   const policy = await readFile(workspacePolicyPath, 'utf8')
   for (const pkg of releaseManifest.packages) {
     const override = `${JSON.stringify(pkg.name)}: ${JSON.stringify(localTarballSpec(pkg))}`
     if (!policy.includes(override)) throw new Error(`本地 tarball 烟测缺少依赖覆盖：${pkg.name}`)
-    if (!pkg.entry && !(pkg.name in dependencies)) {
-      throw new Error(`本地 tarball 烟测缺少内部依赖：${pkg.name}`)
+    if (!pkg.entry && pkg.name in dependencies) {
+      throw new Error(`本地烟测不得把内部包提升为 Profile 顶层依赖：${pkg.name}`)
     }
     if (!pkg.entry && bundles.includes(pkg.name)) {
       throw new Error(`内部包不能成为 Profile Bundle：${pkg.name}`)
@@ -245,7 +242,11 @@ try {
   await writeFile(logPath, Buffer.concat(chunks).toString('utf8'))
 }
 
-if (failure) throw failure
+if (failure) {
+  const log = await readFile(logPath, 'utf8').catch(() => '')
+  const detail = failure instanceof Error ? failure.message : String(failure)
+  throw new Error(`${detail}\n${log}`, { cause: failure })
+}
 if (!ready) {
   const log = await readFile(logPath, 'utf8').catch(() => '')
   throw new Error(`DSH Web 60 秒内未就绪\n${log}`)
