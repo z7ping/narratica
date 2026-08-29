@@ -175,7 +175,7 @@ if (mode === 'local') {
 }
 
 const dump = run(['exec', 'dsh', '--profile', 'narratica', '--dump-config'])
-assertNarraticaProfileContract({ profile, dump, distribution: true })
+await assertNarraticaProfileContract({ profile, dump, distribution: true })
 
 const chunks = []
 const child = spawn(pnpm, ['exec', 'dsh', '--profile', 'narratica', '--port', '3189', '--no-open'], {
