@@ -187,12 +187,15 @@ if (mode === 'local') {
 }
 
 const dump = run(['exec', 'dsh', '--profile', 'narratica', '--dump-config'])
-const expectedPlugins = [
+const expectedLoaderIds = [
   'narratica-stories',
   'narratica-skill-pack',
   'narratica-providers',
   'narratica-media',
   'narratica-production',
+  'narratica-client',
+]
+const legacyClientLoaderIds = [
   'narratica-client-runtime',
   'narratica-client-layout',
   'narratica-client-workspace',
@@ -200,8 +203,12 @@ const expectedPlugins = [
   'narratica-client-novel',
   'narratica-client-director',
 ]
-for (const plugin of expectedPlugins) {
-  if (!dump.includes(plugin)) throw new Error(`发行烟测组合配置缺少插件：${plugin}`)
+const loaderIdPattern = id => new RegExp(`(?:^|\\n)\\s*-\\s*id:\\s*${id}(?:\\s|$)`, 'm')
+for (const id of expectedLoaderIds) {
+  if (!loaderIdPattern(id).test(dump)) throw new Error(`发行烟测组合配置缺少 Loader：${id}`)
+}
+for (const id of legacyClientLoaderIds) {
+  if (loaderIdPattern(id).test(dump)) throw new Error(`发行烟测不应再出现旧 Client Loader：${id}`)
 }
 
 const chunks = []
