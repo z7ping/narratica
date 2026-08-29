@@ -17,6 +17,22 @@ const releaseScripts = [
   'scripts/release/publish-release.mjs',
 ]
 
+const runtimeBridges = Object.freeze([
+  ['plugin-stories', '@narratica/plugin-stories'],
+  ['plugin-skill-pack', '@narratica/plugin-skill-pack'],
+  ['plugin-providers', '@narratica/plugin-providers'],
+  ['plugin-media', '@narratica/plugin-media'],
+  ['plugin-production', '@narratica/plugin-production'],
+  ['story-tools', '@narratica/story-tools'],
+  ['story-tools-model-policy', '@narratica/story-tools/model-policy'],
+  ['client-runtime', '@narratica/client-runtime'],
+  ['client-layout', '@narratica/client-layout'],
+  ['client-workspace', '@narratica/client-workspace'],
+  ['client-story-library', '@narratica/client-story-library'],
+  ['client-novel', '@narratica/client-novel'],
+  ['client-director', '@narratica/client-director'],
+])
+
 test('正式发布由 GitHub Release published 触发，手工入口默认只 verify 且仅显式 resume 可续发', async () => {
   const workflow = await readFile('.github/workflows/release.yml', 'utf8')
   assert.match(workflow, /on:\n  release:\n    types:\n      - published\n  workflow_dispatch:/)
@@ -94,6 +110,24 @@ test('源码保持不可直接发布，发行包由唯一入口依赖闭包自�
   for (const pkg of closure) assert.ok(pkg.name.startsWith('@narratica/'))
 })
 
+test('树外 Bundle 的 Narratica 插件只从 Profile 解析正式入口，再由入口桥接内部依赖', async () => {
+  const entry = JSON.parse(await readFile('packages/bundle/narratica/package.json', 'utf8'))
+  const patch = await readFile('packages/bundle/narratica/cordis.patch.yml', 'utf8')
+
+  assert.ok(entry.files.includes('runtime'))
+  assert.equal(entry.exports?.['./runtime/*'], './runtime/*.js')
+
+  for (const [bridge, target] of runtimeBridges) {
+    assert.match(patch, new RegExp(`name: '@narratica/narratica/runtime/${bridge.replaceAll('-', '\\-')}'`))
+    const source = await readFile(`packages/bundle/narratica/runtime/${bridge}.js`, 'utf8')
+    assert.match(source, new RegExp(target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
+
+  for (const target of new Set(runtimeBridges.map(([, target]) => target.split('/model-policy')[0]))) {
+    assert.doesNotMatch(patch, new RegExp(`name: '${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&)}(?:/model-policy)?'`))
+  }
+})
+
 test('Release 脚本必须把内部依赖锁到同版本并拒绝 workspace 协议进入 tarball', async () => {
   const prepare = await readFile('scripts/release/prepare-release.mjs', 'utf8')
   const pack = await readFile('scripts/release/pack-release.mjs', 'utf8')
@@ -103,9 +137,23 @@ test('Release 脚本必须把内部依赖锁到同版本并拒绝 workspace 协�
   assert.match(prepare, /manifest\.private = false/)
   assert.match(prepare, /delete manifest\.devDependencies/)
   assert.match(prepare, /access: 'public'/)
+  assert.match(prepare, /README\.md/)
+  assert.match(prepare, /Internal implementation package/)
   assert.match(pack, /tarball 残留 workspace:/)
+  assert.match(pack, /tarball 缺少 README\.md/)
+  assert.match(pack, /ENTRY_RUNTIME_FILES/)
   assert.match(pack, /cordis\.patch\.yml/)
   assert.match(publish, /入口包必须最后发布/)
+})
+
+test('本地 tarball 烟测必须保持真实的一包安装语义，不能用顶层内部依赖掩盖解析问题', async () => {
+  const smoke = await readFile('scripts/release/smoke-release.mjs', 'utf8')
+  assert.match(smoke, /localOverrides/)
+  assert.match(smoke, /add\(resolve\(releaseDir, entry\.tarball\)\)/)
+  assert.match(smoke, /narraticaDirectDependencies/)
+  assert.match(smoke, /Profile 顶层只能依赖正式入口包/)
+  assert.match(smoke, /不得把内部包提升为 Profile 顶层依赖/)
+  assert.doesNotMatch(smoke, /profile\.dependencies\[pkg\.name\]\s*=/)
 })
 
 test('Registry 烟测等待整个发行闭包的包级元数据传播并以匿名公众用户安装', async () => {
@@ -120,6 +168,8 @@ test('Registry 烟测等待整个发行闭包的包级元数据传播并以匿�
   assert.match(smoke, /delete env\.NODE_AUTH_TOKEN/)
   assert.match(smoke, /delete env\.NPM_TOKEN/)
   assert.match(smoke, /NPM_CONFIG_PREFER_ONLINE/)
+  assert.match(smoke, /const log = await readFile\(logPath, 'utf8'\)/)
+  assert.match(smoke, /throw new Error\(`\$\{detail\}\\n\$\{log\}`/)
   assert.doesNotMatch(smoke, /always-auth/)
 })
 
