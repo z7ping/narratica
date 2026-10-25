@@ -19,7 +19,6 @@
   "dsh": {
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-client-runtime",
         "@narratica/client-runtime",
         "@narratica/client-workspace",
         "@narratica/client-layout"
