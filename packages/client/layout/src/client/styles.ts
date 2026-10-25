@@ -44,6 +44,25 @@ export const STYLES = `
 
 .narratica-inspector-drawer{position:fixed;inset:0;z-index:89;pointer-events:none}.narratica-inspector-drawer:empty{display:none}.narratica-inspector-drawer>*{pointer-events:auto}.narratica-topbar{height:64px;display:flex;align-items:center;padding:0 18px;background:#fff;border-bottom:1px solid var(--line)}.narratica-head-actions{margin-left:auto}.narratica-btn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 10px}
 
+/* Shared Markdown reading typography and overflow, using Narratica tokens. */
+.narratica-root .narratica-markdown{min-width:0;color:var(--n-text,var(--text));line-height:1.7;overflow-wrap:anywhere}
+.narratica-root .narratica-markdown.compact{font-size:var(--n-font-size-sm,var(--font-sm))}
+.narratica-root .narratica-markdown :is(h1,h2,h3,h4,h5,h6){margin:1em 0 .5em;line-height:1.35;color:inherit;font-weight:700}
+.narratica-root .narratica-markdown h1{font-size:1.5em}.narratica-root .narratica-markdown h2{font-size:1.3em}.narratica-root .narratica-markdown h3{font-size:1.13em}
+.narratica-root .narratica-markdown :is(p,ul,ol,blockquote,pre,table){margin:.6em 0 1em}
+.narratica-root .narratica-markdown :is(ul,ol){padding-left:1.7em}
+.narratica-root .narratica-markdown blockquote{border-left:3px solid var(--n-border,var(--line));padding-left:1em;color:var(--n-text-secondary,var(--muted))}
+.narratica-root .narratica-markdown :is(pre,table){max-width:100%;overflow:auto}
+.narratica-root .narratica-markdown pre{padding:12px;background:var(--n-surface-subtle,var(--surface2));border-radius:var(--n-radius-sm,8px)}
+.narratica-root .narratica-markdown :not(pre)>code{padding:1px 4px;background:var(--n-surface-subtle,var(--surface2));border-radius:4px}
+.narratica-root .narratica-markdown table{display:block;border-collapse:collapse}
+.narratica-root .narratica-markdown :is(td,th){border:1px solid var(--n-border,var(--line));padding:6px 10px;text-align:left;vertical-align:top}
+.narratica-root .narratica-markdown th{background:var(--n-surface-subtle,var(--surface2))}
+.narratica-root .narratica-markdown img{max-width:100%;height:auto}
+.narratica-root .narratica-markdown a{color:var(--n-brand,var(--brand));text-decoration:underline}
+.narratica-root .narratica-markdown-field{min-width:0;width:100%;display:grid;gap:8px}
+.narratica-root .narratica-markdown-field>.row{display:flex;justify-content:flex-end;gap:6px}
+
 @media(max-width:1180px){
   .topbar{height:auto;min-height:64px;grid-template-columns:1fr auto;padding-top:8px;padding-bottom:8px}.mode-tabs{grid-row:2;grid-column:1/-1;justify-self:center}.m1grid,.stage-grid,.m3grid{grid-template-columns:220px minmax(0,1fr)}.m1grid>.panel:last-child,.stage-grid>.panel:last-child,.m3grid>.panel:last-child{grid-column:1/-1}.story-grid{grid-template-columns:repeat(2,1fr)}.body{height:auto}
 }

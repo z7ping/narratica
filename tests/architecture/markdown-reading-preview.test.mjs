@@ -2,13 +2,14 @@ import assert from 'node:assert/strict'
 import { readFile } from './read-text.mjs'
 import test from 'node:test'
 
-test('the DSH Markdown renderer is used for story reading', async () => {
+test('one sanitized GFM renderer is used for story reading', async () => {
   const shared = await readFile('packages/client/layout/src/client/markdown.tsx', 'utf8')
   const novel = await readFile('packages/client/novel/src/client/index.tsx', 'utf8')
   const workspace = await readFile('packages/client/workspace/src/client/repository-workspace.tsx', 'utf8')
-  assert.match(shared, /@deepseek-ai\/dsh-client-ui-primitives/)
-  assert.match(shared, /MarkdownText/)
-  assert.match(shared, /omitHtml/)
+  assert.match(shared, /from 'marked'/)
+  assert.match(shared, /from 'dompurify'/)
+  assert.match(shared, /MarkdownDocument/)
+  assert.match(shared, /DOMPurify\.sanitize/)
   for (const resource of ['relations', 'world', 'outline']) assert.ok(novel.includes(`MarkdownDocument text={supportText(${resource},`))
   assert.match(novel, /MarkdownDraftField textareaClassName="editor"/)
   assert.match(workspace, /isMarkdown/)
@@ -23,6 +24,6 @@ test('screenplay, adaptation, review, assets and storyboards can preview drafts 
     assert.match(source, /onChangeText=/)
   }
   const build = await readFile('scripts/build-client-plugin.mjs', 'utf8')
-  assert.match(build, /@deepseek-ai\/dsh-client-ui-primitives/)
-  assert.match(build, /styleBoot/)
+  assert.match(build, /markdown.tsx/)
+  assert.match(build, /bundle: false/)
 })

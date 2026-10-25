@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react'
-import { MarkdownText, type MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
+import { useEffect, useMemo, useState } from 'react'
+import { Marked } from 'marked'
+import DOMPurify from 'dompurify'
 
-const LABELS: MarkdownLabels = {
-  code: { copyLabel: '复制代码', copiedLabel: '已复制' },
-  footnotes: '脚注',
-}
+const parser = new Marked({ gfm: true, breaks: false })
 
-/** All story Markdown shares DSH's GFM/TeX renderer and safe-link behavior. */
+/** Render GFM and sanitize untrusted HTML and unsafe URLs. */
 export function MarkdownDocument({ text, compact = false }: { readonly text: string; readonly compact?: boolean }) {
-  return <MarkdownText text={text} labels={LABELS} variant={compact ? 'compact' : 'body'} omitHtml />
+  const html = useMemo(() => DOMPurify.sanitize(parser.parse(text, { async: false }) as string, {
+    USE_PROFILES: { html: true },
+  }), [text])
+  return <div className={`narratica-markdown${compact ? ' compact' : ''}`} dangerouslySetInnerHTML={{ __html: html }} />
 }
 
 /** Reading vs source editing is presentation-only; story mutations keep their existing boundary. */

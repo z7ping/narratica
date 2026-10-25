@@ -46,6 +46,7 @@
     "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.3"
   },
   "dependencies": {
-    "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-rc.3"
+    "dompurify": "3.4.17",
+    "marked": "18.1.1"
   }
 }

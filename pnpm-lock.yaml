@@ -173,9 +173,12 @@ importers:
 
   packages/client/layout:
     dependencies:
-      '@deepseek-ai/dsh-client-ui-primitives':
-        specifier: 0.2.1-rc.3
-        version: 0.2.1-rc.3(@deepseek-ai/cordis@4.0.5)
+      dompurify:
+        specifier: 3.4.17
+        version: 3.4.17
+      marked:
+        specifier: 18.1.1
+        version: 18.1.1
       '@deepseek-ai/dsh-api-session-controller':
         specifier: 0.2.1-rc.3
         version: 0.2.1-rc.3(7dd85cd125d9505526373716e74413ac)
@@ -4179,6 +4182,9 @@ packages:
     resolution: {integrity: sha512-HWcBoN6NileqtSydK2FqHbS/LoDd2pqrnQHLyJzBj4kOp/ky2MWMN694xOfkK8/SnUsW2DH7EfyVlydKCsm1Zw==}
     engines: {node: '>= 0.4'}
 
+  dompurify@3.4.17:
+    resolution: {tarball: https://registry.npmjs.org/dompurify/-/dompurify-3.4.17.tgz}
+
   esbuild@0.28.1:
     resolution: {integrity: sha512-HrJrvZv5ayxBzPfwphOoNzkzOIIlifzk0KJrGK2c8R4+LKpMtpYLQeUdjnwjWv/LZlkH2laZk+4w78pi99D4Vw==}
     engines: {node: '>=18'}
@@ -4845,6 +4851,10 @@ packages:
     peerDependencies:
       react: ^18.3.1
 
+  marked@18.1.1:
+    resolution: {tarball: https://registry.npmjs.org/marked/-/marked-18.1.1.tgz}
+    engines: {node: '>= 20'}
+
   react@18.3.1:
     resolution: {integrity: sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ==}
     engines: {node: '>=0.10.0'}
@@ -5231,6 +5241,10 @@ packages:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
 snapshots:
+
+  dompurify@3.4.17: {}
+
+  marked@18.1.1: {}
 
   '@agentclientprotocol/sdk@1.4.0(zod@4.4.3)':
     dependencies:
