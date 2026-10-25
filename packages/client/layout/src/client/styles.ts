@@ -61,7 +61,14 @@ export const STYLES = `
 .narratica-root .narratica-markdown img{max-width:100%;height:auto}
 .narratica-root .narratica-markdown a{color:var(--n-brand,var(--brand));text-decoration:underline}
 .narratica-root .narratica-markdown-field{min-width:0;width:100%;display:grid;gap:8px}
-.narratica-root .narratica-markdown-field>.row{display:flex;justify-content:flex-end;gap:6px}
+.narratica-root .narratica-markdown-field>.row{display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap}
+.narratica-root .narratica-markdown-format{justify-content:flex-start!important}
+.narratica-root .narratica-markdown-editor-layout{min-width:0}
+.narratica-root .narratica-markdown-editor-layout.split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--n-space-3,12px);align-items:stretch}
+.narratica-root .narratica-markdown-editor-layout.split>textarea{width:100%;min-width:0;max-width:none;height:100%;resize:vertical}
+.narratica-root .narratica-markdown-editor-layout.split>.narratica-markdown-preview{min-height:320px;max-height:65vh;overflow:auto;border:1px solid var(--n-border,var(--line))}
+.narratica-root .narratica-markdown-preview{padding:var(--n-space-3,12px);border-radius:var(--n-radius-md,9px)}
+@media(max-width:899px){.narratica-root .narratica-markdown-editor-layout.split{grid-template-columns:1fr}.narratica-root .narratica-markdown-editor-layout.split>textarea{min-height:280px}.narratica-root .narratica-markdown-editor-layout.split>.narratica-markdown-preview{min-height:200px}}
 
 @media(max-width:1180px){
   .topbar{height:auto;min-height:64px;grid-template-columns:1fr auto;padding-top:8px;padding-bottom:8px}.mode-tabs{grid-row:2;grid-column:1/-1;justify-self:center}.m1grid,.stage-grid,.m3grid{grid-template-columns:220px minmax(0,1fr)}.m1grid>.panel:last-child,.stage-grid>.panel:last-child,.m3grid>.panel:last-child{grid-column:1/-1}.story-grid{grid-template-columns:repeat(2,1fr)}.body{height:auto}
