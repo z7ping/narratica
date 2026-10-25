@@ -174,7 +174,10 @@ test('正式入口自身是唯一 Narratica Client loader，并通过 Cordis Fib
   assert.deepEqual(entry.dsh.client.inject, [
     '@deepseek-ai/dsh-api-remotes',
     '@deepseek-ai/dsh-client-connection',
-    '@deepseek-ai/dsh-client-runtime',
+    '@deepseek-ai/dsh-api-session-controller',
+    '@deepseek-ai/dsh-api-workspace-controller',
+    '@deepseek-ai/dsh-client-ui-conversation',
+    '@deepseek-ai/dsh-client-ui-chat',
     '@deepseek-ai/dsh-client-ui-layout',
     '@deepseek-ai/dsh-client-ui-sidebar',
   ])

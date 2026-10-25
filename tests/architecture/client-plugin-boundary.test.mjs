@@ -38,8 +38,9 @@ test('formal Narratica layout no longer owns DSH root', async () => {
 
   assert.doesNotMatch(source, /name: 'root'/)
   assert.match(bridge, /name: 'sidebar\.footer\.action'/)
-  assert.match(bridge, /name: 'conversation'/)
-  assert.match(bridge, /priority: -100/)
+  assert.match(bridge, /name: 'main'/)
+  assert.match(bridge, /key: 'narratica'/)
+  assert.doesNotMatch(bridge, /name: 'conversation'/)
   assert.match(layout, /'narratica\.inspector': \{ kind: 'single'; scope: 'root' \}/)
   assert.match(bridge, /'narratica\.inspector': \{ kind: 'single', scope: 'root' \}/)
   for (const slot of ['narratica.topbar', 'narratica.workspace', 'narratica.inspector', 'narratica.drawer', 'narratica.overlay']) {
@@ -75,7 +76,7 @@ test('Stories service publishes official Typert host and remote contracts', asyn
   assert.match(source, /from '@narratica\/contracts\/remote-types'/)
 })
 
-test('Typert host aggregate owns source aliases and the rc2 metadata bridge', async () => {
+test('Typert host aggregate owns source aliases and the rc3 metadata bridge', async () => {
   const host = await readJson('tsconfig.host.json')
   const client = await readJson('tsconfig.client.json')
   assert.equal(host.extends, './tsconfig.base.json')
@@ -91,10 +92,10 @@ test('Typert host aggregate owns source aliases and the rc2 metadata bridge', as
     './packages/core/story/src/index.ts',
   ])
   assert.deepEqual(host.compilerOptions.paths['@deepseek-ai/dsh-typert-protocol'], [
-    './types/dsh-typert-protocol.rc2.d.ts',
+    './types/dsh-typert-protocol.rc3.d.ts',
   ])
 
-  const bridge = await readFile('types/dsh-typert-protocol.rc2.d.ts', 'utf8')
+  const bridge = await readFile('types/dsh-typert-protocol.rc3.d.ts', 'utf8')
   assert.match(bridge, /declare module '@deepseek-ai\/dsh-typert-protocol'/)
   assert.match(bridge, /abstract class TypertRemoteService/)
   assert.match(bridge, /function Remote/)
