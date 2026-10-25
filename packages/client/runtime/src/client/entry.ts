@@ -28,7 +28,7 @@ export type {
 export type { NarraticaDirectorSessionRole } from './director-client.js'
 export { directorSessionRole } from './director-client.js'
 
-export const inject = ['remote', 'connection', 'sessions'] as const
+export const inject = ['remote', 'connection', 'sessions', 'workspaces', 'uiConversation'] as const
 
 export async function apply(ctx: Context): Promise<() => Promise<void>> {
   const disposeStoriesRemote = await ctx.remote.$mount(storiesRemote)
