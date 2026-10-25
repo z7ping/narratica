@@ -2,7 +2,7 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "paths": {
-      "@deepseek-ai/dsh-typert-protocol": ["./types/dsh-typert-protocol.rc2.d.ts"],
+      "@deepseek-ai/dsh-typert-protocol": ["./types/dsh-typert-protocol.rc3.d.ts"],
       "@narratica/contracts": ["./packages/shared/contracts/src/index.ts"],
       "@narratica/contracts/remote-types": ["./packages/shared/contracts/src/remote-types.ts"],
       "@narratica/story-core": ["./packages/core/story/src/index.ts"]

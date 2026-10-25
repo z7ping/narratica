@@ -9,7 +9,7 @@ const dependencyFields = [
   'peerDependencies',
   'optionalDependencies',
 ]
-const legacyDshVersions = ['0.1.0-rc.7', '0.1.0-rc.8']
+const legacyDshVersions = ['0.1.0-rc.7', '0.1.0-rc.8', '0.1.1-rc.2']
 
 async function readJson(path) {
   return JSON.parse(await readFile(path, 'utf8'))
@@ -66,17 +66,17 @@ if (!workspaceConfig.includes(expectedSubprocessApproval)) {
 
 const hostConfig = await readFile(resolve('tsconfig.host.json'), 'utf8')
 const clientConfig = await readFile(resolve('tsconfig.client.base.json'), 'utf8')
-const expectedHostBridge = './types/dsh-typert-protocol.rc2.d.ts'
+const expectedHostBridge = './types/dsh-typert-protocol.rc3.d.ts'
 if (!hostConfig.includes(expectedHostBridge)) {
   throw new Error(
-    `tsconfig.host.json must map @deepseek-ai/dsh-typert-protocol to ${expectedHostBridge} for rc.2 out-of-tree Typert analysis`,
+    `tsconfig.host.json must map @deepseek-ai/dsh-typert-protocol to ${expectedHostBridge} for rc.3 out-of-tree Typert analysis`,
   )
 }
-if (hostConfig.includes('dsh-typert-protocol.rc7') || clientConfig.includes('dsh-typert-protocol.rc7')) {
-  throw new Error('Host/Client config still references the retired rc.7 Typert compatibility bridge')
+if (hostConfig.includes('dsh-typert-protocol.rc7') || hostConfig.includes('dsh-typert-protocol.rc2') || clientConfig.includes('dsh-typert-protocol.rc7') || clientConfig.includes('dsh-typert-protocol.rc2')) {
+  throw new Error('Host/Client config still references the retired rc.7/rc.2 Typert compatibility bridge')
 }
-if (clientConfig.includes('dsh-typert-protocol.rc2')) {
-  throw new Error('tsconfig.client.base.json must use the official rc.2 protocol package, not the Host-only Typert analysis bridge')
+if (clientConfig.includes('dsh-typert-protocol.rc3')) {
+  throw new Error('tsconfig.client.base.json must use the official rc.3 protocol package, not the Host-only Typert analysis bridge')
 }
 
 const lockfile = await readFile(resolve('pnpm-lock.yaml'), 'utf8')
