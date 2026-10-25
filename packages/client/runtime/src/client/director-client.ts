@@ -4,6 +4,7 @@ import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { ProjectId } from '@narratica/contracts'
 
 import { NarraticaDirectorClient as LegacyNarraticaDirectorClient } from './index.js'
+import { createDirectorSessionSource } from './director-session-source.js'
 import type {
   DirectorSessionSource,
   DirectorSubmitResult,
@@ -168,7 +169,7 @@ export class NarraticaDirectorClient extends LegacyNarraticaDirectorClient {
   sessionForProject(projectId: ProjectId): DirectorSessionSource | undefined {
     const role = directorSessionRole(this.routeForProject(projectId))
     const sessionId = this.roleProjectSessions.get(projectId)?.get(role)
-    return sessionId === undefined ? undefined : this.directorSessions().binding(sessionId)?.session
+    return sessionId === undefined ? undefined : createDirectorSessionSource(this.roleCtx, this.directorSessions(), sessionId)
   }
 
   async cancelForProject(projectId: ProjectId): Promise<void> {

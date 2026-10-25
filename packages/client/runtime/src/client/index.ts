@@ -1,6 +1,8 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ConnectionHandle, SessionId } from '@deepseek-ai/dsh-api-remotes/client'
-import type { ConversationSnapshot, ISessions } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ISessions, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { ConversationNode, PartialAssistant } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { createDirectorSessionSource } from './director-session-source.js'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
   AddNovelRelationInput,
@@ -148,8 +150,16 @@ export type DirectorSubmitResult =
 
 export type NarraticaDirectorRoute = 'novel' | 'screenplay-adaptation' | 'screenplay-preproduction' | 'media-production'
 
+export interface DirectorConversationSnapshot {
+  readonly nodes: readonly ConversationNode[]
+  readonly partial: PartialAssistant | null
+  readonly promptError: SessionSnapshot['promptError']
+  readonly running: boolean
+  readonly removed: boolean
+}
+
 export interface DirectorSessionSource {
-  getSnapshot(): ConversationSnapshot
+  getSnapshot(): DirectorConversationSnapshot
   subscribe(listener: () => void): () => void
 }
 
@@ -533,7 +543,7 @@ export class NarraticaDirectorClient {
 
   sessionForProject(projectId: ProjectId): DirectorSessionSource | undefined {
     const sessionId = this.projectSessions.get(projectId)
-    return sessionId === undefined ? undefined : this.sessions().binding(sessionId)?.session
+    return sessionId === undefined ? undefined : createDirectorSessionSource(this.ctx, this.sessions(), sessionId)
   }
   async cancelForProject(projectId: ProjectId): Promise<void> {
     const sessionId = this.projectSessions.get(projectId)
