@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { InjectFace, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ProjectId } from '@narratica/contracts'
 import type { NarraticaSurfaceController } from '@narratica/client-layout/client'
@@ -449,7 +450,7 @@ export function apply(ctx: Context): void {
       hooks: { workspace },
       stories,
       production,
-      openDirector: async (projectId, route) => { const sessionId = await director.prepareProject(projectId, route); surface.focusSession(sessionId); workspace.showDirector() },
+      openDirector: async (projectId, route) => { const sessionId = await director.prepareProject(projectId, route); await surface.focusSession(sessionId); workspace.showDirector() },
       closeDirector: () => workspace.hideDirector(),
       consumeRepositoryFocus: () => workspace.consumeRepositoryFocus(),
       focusNovelScene: sceneId => workspace.focusNovelScene(sceneId),
@@ -463,7 +464,7 @@ export function apply(ctx: Context): void {
       readingStories: stories,
       openLibrary: () => workspace.openLibrary(),
       openNovel: projectId => workspace.openNovel(projectId),
-      prepareDirector: async (projectId, route) => { const sessionId = await director.prepareProject(projectId, route); surface.focusSession(sessionId) },
+      prepareDirector: async (projectId, route) => { const sessionId = await director.prepareProject(projectId, route); await surface.focusSession(sessionId) },
       runDirector: async (projectId, text) => { await director.submitForProject(projectId, text) },
       showDirector: () => workspace.showDirector(),
       hideDirector: () => workspace.hideDirector(),

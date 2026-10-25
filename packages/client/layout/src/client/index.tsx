@@ -1,12 +1,15 @@
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
+import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
+import type { SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import narraticaAppIconUrl from './assets/narratica-app-icon.svg'
 import {
-  closeDshDetails,
   injectNarraticaFooterAction,
-  registerConversationShadow,
+  registerNarraticaMain,
   type NarraticaFooterActionProps,
-} from './dsh-rc2-bridge.js'
+} from './dsh-rc3-bridge.js'
 import { DESIGN_TOKENS, DESIGN_TOKENS_STYLE_ID } from './design-tokens.js'
 import { DIRECTOR_ASSISTANT_STYLES, DIRECTOR_ASSISTANT_STYLE_ID } from './director-assistant.js'
 import { NOVEL_SECONDARY_STYLES, NOVEL_SECONDARY_STYLE_ID } from './novel-secondary.js'
@@ -31,7 +34,13 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-type DshSessionId = NonNullable<ReturnType<ClientContext['sessions']['list']['getSnapshot']>['current']>
+const NARRATICA_PANEL_ID = 'narratica'
+
+declare module '@deepseek-ai/dsh-api-session-controller/client' {
+  interface SessionReferenceSourceMap {
+    narraticaDirector: unknown
+  }
+}
 
 export function NarraticaMark({ size = 32, className }: { readonly size?: number; readonly className?: string }) {
   return (
@@ -48,7 +57,7 @@ export function NarraticaMark({ size = 32, className }: { readonly size?: number
 
 /** UI-only bridge for Narratica-owned Session staging while its workspace stays visible. */
 export interface NarraticaSurfaceController {
-  focusSession(sessionId: DshSessionId): void
+  focusSession(sessionId: SessionId): Promise<void>
 }
 
 declare module '@deepseek-ai/cordis' {
@@ -158,78 +167,54 @@ export function apply(ctx: ClientContext): void {
     document.getElementById(MODEL_SETTINGS_STYLE_ID)?.remove()
   }, 'narratica-client-layout: styles')
 
-  let disposeConversation: (() => void) | undefined
-  let returnSession: DshSessionId | undefined
-  let activeSurfaceSession: DshSessionId | undefined
-  let internalSessionTarget: DshSessionId | undefined
-
-  const closeNarratica = (restoreSession = true): void => {
-    const dispose = disposeConversation
-    if (dispose === undefined) return
-    const restoreTarget = returnSession
-    disposeConversation = undefined
-    returnSession = undefined
-    activeSurfaceSession = undefined
-    internalSessionTarget = undefined
-    dispose()
-
-    if (!restoreSession) return
-    const snapshot = ctx.sessions.list.getSnapshot()
-    if (restoreTarget !== undefined && snapshot.byId[restoreTarget] !== undefined) {
-      if (snapshot.current !== restoreTarget) ctx.sessions.open(restoreTarget)
-    } else if (restoreTarget === undefined && snapshot.current !== undefined) {
-      ctx.sessions.clear()
-    }
+  // 上游 0.2.1 将主面板导航与 Session 生命周期分离。
+  // Narratica 使用独立主面板；导演 Session 单独 retain，不抢占 DSH 会话选择。
+  let directorReference: SessionReference | undefined
+  const releaseDirector = (): void => {
+    directorReference?.release()
+    directorReference = undefined
   }
-
-  const openNarratica = (): void => {
-    if (disposeConversation !== undefined) return
-    closeDshDetails(ctx)
-    const current = ctx.sessions.list.getSnapshot().current
-    returnSession = current
-    activeSurfaceSession = current
-    disposeConversation = registerConversationShadow(ctx, () => { closeNarratica(true) }, NarraticaSurface)
+  const closeNarratica = (): void => {
+    releaseDirector()
+    ctx.layout.selectPanel(null)
   }
-
   const toggleNarratica = (): void => {
-    if (disposeConversation === undefined) openNarratica()
-    else closeNarratica(true)
+    if (ctx.layout.panelInfo.getSnapshot().activePanelId === NARRATICA_PANEL_ID) closeNarratica()
+    else ctx.layout.selectPanel(NARRATICA_PANEL_ID)
   }
 
   const surfaceController: NarraticaSurfaceController = {
-    focusSession(sessionId) {
-      if (disposeConversation === undefined) {
+    async focusSession(sessionId) {
+      if (ctx.layout.panelInfo.getSnapshot().activePanelId !== NARRATICA_PANEL_ID) {
         throw new Error('Narratica 工作区尚未打开，不能切换内部导演会话')
       }
-      internalSessionTarget = sessionId
-      activeSurfaceSession = sessionId
-      ctx.sessions.open(sessionId)
-      if (ctx.sessions.list.getSnapshot().current === sessionId) internalSessionTarget = undefined
+      if (directorReference?.sessionId === sessionId) { await directorReference.ready; return }
+      const next = ctx.sessions.retain(sessionId, { source: 'narraticaDirector' })
+      releaseDirector()
+      directorReference = next
+      // 读取准备阶段由 Client Session Controller 管理，不切换当前 DSH 会话。
+      try {
+        await next.ready
+        if (directorReference !== next) throw new Error('Narratica 导演会话加载已取消')
+      } catch (error) {
+        if (directorReference === next) releaseDirector()
+        throw error
+      }
     },
   }
 
   ctx.effect(() => {
     const disposeService = ctx.reflect.provide('narraticaSurface', surfaceController)
-    return () => { void disposeService() }
+    return () => { releaseDirector(); void disposeService() }
   }, 'narratica-client-layout: surface controller')
 
   ctx.effect(() => {
-    const unsubscribe = ctx.sessions.list.subscribe(() => {
-      if (disposeConversation === undefined) return
-      const current = ctx.sessions.list.getSnapshot().current
-      if (internalSessionTarget !== undefined && current === internalSessionTarget) {
-        activeSurfaceSession = current
-        internalSessionTarget = undefined
-        return
-      }
-      if (current === activeSurfaceSession) return
-      closeNarratica(false)
+    const unsubscribe = ctx.layout.panelInfo.subscribe(() => {
+      if (ctx.layout.panelInfo.getSnapshot().activePanelId !== NARRATICA_PANEL_ID) releaseDirector()
     })
-    return () => {
-      unsubscribe()
-      closeNarratica(true)
-    }
-  }, 'narratica-client-layout: surface lifecycle')
+    return unsubscribe
+  }, 'narratica-client-layout: panel lifecycle')
 
+  registerNarraticaMain(ctx, closeNarratica, NarraticaSurface)
   injectNarraticaFooterAction(ctx, toggleNarratica, NarraticaLauncher)
 }

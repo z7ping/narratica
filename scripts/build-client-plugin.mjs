@@ -23,7 +23,10 @@ const PLATFORM_EXTERNALS = [
   'react-dom/client',
   '@deepseek-ai/cordis',
   '@deepseek-ai/dsh-api-remotes',
-  '@deepseek-ai/dsh-client-runtime',
+  '@deepseek-ai/dsh-api-session-controller',
+  '@deepseek-ai/dsh-api-workspace-controller',
+  '@deepseek-ai/dsh-client-ui-conversation',
+  '@deepseek-ai/dsh-client-ui-chat',
   '@deepseek-ai/dsh-client-ui-slots',
 ]
 

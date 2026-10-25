@@ -10,8 +10,8 @@
 # dsh.client + ./client 会在浏览器侧挂载六个独立 Cordis Client Fiber。
 #
 # Client 通过 sidebar.footer.action 提供固定入口，并利用 DSH 官方
-# conversation single-slot priority shadowing 临时显示完整 Narratica Workspace；
-# 退出时释放 Narratica 注册，原 Conversation 自动恢复。
+# keyed main Panel 显示完整 Narratica Workspace；退出时选回宿主 Conversation。
+# Director Session 独立 retain/release，不影响 DSH 当前 Session。
 
 - insert:
     - id: narratica-stories

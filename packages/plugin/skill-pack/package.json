@@ -11,11 +11,14 @@
       "default": "./lib/index.js"
     }
   },
-  "files": ["lib", "builtin"],
+  "files": [
+    "lib",
+    "builtin"
+  ],
   "peerDependencies": {
-    "@deepseek-ai/cordis": "4.0.1"
+    "@deepseek-ai/cordis": "4.0.5"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "4.0.1"
+    "@deepseek-ai/cordis": "4.0.5"
   }
 }

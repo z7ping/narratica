@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
-import type { ConversationNode, ConversationSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type { ConversationNode } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { DirectorConversationSnapshot } from '@narratica/client-runtime/client'
 import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { NovelExtractedOutlineApplyPreview, NovelGoldenThreeApplyPreview, NovelOutlineApplyPreview, NovelRelation, NovelRelationRemovalApproval, NovelRelationRestoreApproval, NovelSettingChangeSet, ProjectId, StoryContentRevision } from '@narratica/contracts'
 import type {} from '@narratica/client-layout/client'
@@ -308,7 +310,7 @@ function DirectorPanel(props: DirectorProps) {
     : route === 'media-production'
       ? '讨论当前镜头、候选或生产问题；采用与交付请在工作台确认'
       : '讨论来源、改编、剧本或分镜；正式确认请在工作台执行'
-  const [snapshot, setSnapshot] = useState<ConversationSnapshot>()
+  const [snapshot, setSnapshot] = useState<DirectorConversationSnapshot>()
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [notice, setNotice] = useState<string>()

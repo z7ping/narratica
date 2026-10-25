@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
   BeginStoryRewriteInput,
@@ -34,9 +35,8 @@ import type {
 } from '@narratica/client-runtime/client'
 import type {} from '@narratica/client-runtime/client'
 import type {} from '@narratica/client-workspace/client'
-import type {} from '@deepseek-ai/dsh-client-runtime/client'
 
-interface NovelSurfaceController { focusSession(sessionId: string): void }
+interface NovelSurfaceController { focusSession(sessionId: string): Promise<void> }
 interface NovelInjected {
   hooks: { workspace: Pick<NarraticaWorkspaceClient, 'getSnapshot' | 'subscribe'> }
   getWorkspace: (projectId: ProjectId) => Promise<NovelWorkspaceProjection>
@@ -414,7 +414,7 @@ export function apply(ctx: Context): void {
       confirmDraft: input => stories.confirmDraft(input),
       runDirector: (projectId, text) => director.submitForProject(projectId, text),
       directorSession: projectId => director.sessionForProject(projectId),
-      openDirector: async projectId => { const sessionId = await director.createNovelSession(projectId); surface.focusSession(sessionId); workspace.showDirector() },
+      openDirector: async projectId => { const sessionId = await director.createNovelSession(projectId); await surface.focusSession(sessionId); workspace.showDirector() },
       openRepositoryArtifact: path => workspace.focusRepositoryArtifact(path),
       consumeSceneFocus: () => workspace.consumeNovelSceneFocus(),
     }),

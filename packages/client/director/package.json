@@ -19,7 +19,8 @@
   "dsh": {
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-client-ui-chat",
         "@narratica/client-runtime",
         "@narratica/client-workspace"
       ],
@@ -27,16 +28,20 @@
     }
   },
   "dependencies": {
-    "@narratica/contracts": "workspace:*"
+    "@narratica/contracts": "workspace:*",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.3"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "4.0.1",
-    "@deepseek-ai/dsh-client-runtime": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-slots": "0.1.1-rc.2",
+    "@deepseek-ai/cordis": "4.0.5",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.3",
     "@narratica/client-layout": "0.0.0",
     "@narratica/client-runtime": "0.0.0",
     "@narratica/client-workspace": "0.0.0",
-    "react": "^18.2.0"
+    "react": "^18.2.0",
+    "@deepseek-ai/dsh-api-session-controller": "0.2.1-rc.3"
   },
-  "files": ["lib"]
+  "files": [
+    "lib"
+  ]
 }

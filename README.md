@@ -14,9 +14,13 @@
   <a href="https://github.com/z7ping/narratica/actions/workflows/ci.yml"><img alt="持续集成" src="https://github.com/z7ping/narratica/actions/workflows/ci.yml/badge.svg" /></a>
   <img alt="Node.js 22.19+ 或 24+" src="https://img.shields.io/badge/Node.js-22.19%2B%20%7C%2024%2B-339933?logo=node.js&logoColor=white" />
   <img alt="pnpm 11.7.0" src="https://img.shields.io/badge/pnpm-11.7.0-F69220?logo=pnpm&logoColor=white" />
-  <img alt="DSH 0.1.1 rc.2" src="https://img.shields.io/badge/DSH-0.1.1--rc.2-0D1B2A" />
+  <img alt="DSH 0.2.1 rc.3" src="https://img.shields.io/badge/DSH-0.2.1--rc.3-0D1B2A" />
   <img alt="开发预览" src="https://img.shields.io/badge/status-development%20preview-FF8A1F" />
 </p>
+
+
+> [!WARNING]
+> DSH 0.2.1-rc.3 升级正在 PR #16 中迁移验证。依赖、Session Controller、Client Slot 与 Typert 兼容层已经更新，但锁文件再生成、编译和正式 Profile 冒烟尚未通过；迁移分支不能视为稳定发行版本。
 
 Narratica 面向故事创作者，让同一个故事项目从想法逐步推进到小说、剧本与分镜，再到图片、视频、音频生成、合成和交付。
 
@@ -84,17 +88,17 @@ Narratica 的默认 DSH Profile 名称是 `narratica`。它是开箱即用的安
 首次创建 Profile 时，需要同时加入锁定的 DSH Web Bundle 和 Narratica 顶层 Bundle：
 
 ```bash
-dsh plugin --profile narratica add @deepseek-ai/dsh-web-app@0.1.1-rc.2 @narratica/narratica
+dsh plugin --profile narratica add @deepseek-ai/dsh-web-app@0.2.1-rc.3 @narratica/narratica
 ```
 
 Alpha 预览版本应显式使用对应 dist-tag：
 
 ```bash
-dsh plugin --profile narratica add @deepseek-ai/dsh-web-app@0.1.1-rc.2 @narratica/narratica@alpha
+dsh plugin --profile narratica add @deepseek-ai/dsh-web-app@0.2.1-rc.3 @narratica/narratica@alpha
 ```
 
 > [!WARNING]
-> 上述路径已经按 DSH `0.1.1-rc.2` CLI 核实，但 `@narratica/narratica` 尚未完成 npm 首发。发布前执行会因 Registry 中不存在该包而失败；现阶段请使用后面的源码开发预览。
+> 上述路径已经按 DSH `0.2.1-rc.3` CLI 核实，但 `@narratica/narratica` 尚未完成 npm 首发。发布前执行会因 Registry 中不存在该包而失败；现阶段请使用后面的源码开发预览。
 
 安装完成后的组合是：
 
@@ -129,7 +133,7 @@ dsh plugin --profile narratica remove @narratica/narratica
 | --- | --- |
 | Node.js | 推荐 24；最低 `22.19.0` |
 | pnpm | `11.7.0` |
-| DSH | `0.1.1-rc.2` |
+| DSH | `0.2.1-rc.3` |
 | Cordis | `4.0.1` |
 | 操作系统 | Windows / macOS / Linux |
 
