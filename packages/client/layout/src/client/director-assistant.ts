@@ -76,6 +76,33 @@ export const DIRECTOR_ASSISTANT_STYLES = `
   background:var(--n-surface);
 }
 .narratica-root .assistant-drawer .notice,.narratica-root .assistant-drawer .error{font-size:var(--n-font-size-sm);line-height:var(--n-line-normal)}
+/* Session-owned AI activity: no timers and no simulated token output. */
+.narratica-root .assistant-drawer .director-body>.director-running{
+  display:flex;align-items:center;gap:var(--n-space-2);
+  color:var(--n-text-secondary);border-style:dashed;
+  background:var(--n-surface-subtle);
+}
+.narratica-root .assistant-drawer .director-stream-dots{display:inline-flex;align-items:center;gap:4px}
+.narratica-root .assistant-drawer .director-stream-dots i{
+  display:block;width:5px;height:5px;border-radius:50%;
+  background:currentColor;animation:narratica-director-pulse 1.2s ease-in-out infinite;
+}
+.narratica-root .assistant-drawer .director-stream-dots i:nth-child(2){animation-delay:.15s}
+.narratica-root .assistant-drawer .director-stream-dots i:nth-child(3){animation-delay:.3s}
+.narratica-root .assistant-drawer .director-streaming>div::after{
+  content:'';display:inline-block;width:2px;height:1em;margin-left:2px;
+  vertical-align:-.15em;background:var(--n-brand);
+  animation:narratica-director-caret .8s steps(1,end) infinite;
+}
+@keyframes narratica-director-pulse{
+  0%,75%,100%{opacity:.3;transform:scale(.75)}
+  35%{opacity:1;transform:scale(1)}
+}
+@keyframes narratica-director-caret{50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){
+  .narratica-root .assistant-drawer .director-stream-dots i{animation:none;opacity:.75}
+  .narratica-root .assistant-drawer .director-streaming>div::after{animation:none}
+}
 @media(max-width:679px){
   .narratica-root .assistant-drawer{width:100vw}
   .narratica-root .assistant-drawer .director-body>.assistant-msg{max-width:94%}

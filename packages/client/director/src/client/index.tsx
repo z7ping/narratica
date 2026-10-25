@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AiActionHint } from '@narratica/client-layout/ui'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -324,6 +324,8 @@ function DirectorPanel(props: DirectorProps) {
       ? '讨论当前镜头、候选或生产问题；采用与交付请在工作台确认'
       : '讨论来源、改编、剧本或分镜；正式确认请在工作台执行'
   const [snapshot, setSnapshot] = useState<DirectorConversationSnapshot>()
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const followTailRef = useRef(true)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [notice, setNotice] = useState<string>()
@@ -350,6 +352,18 @@ function DirectorPanel(props: DirectorProps) {
     sync()
     return session.subscribe(sync)
   }, [directorOpen, projectId, route, props.sessionForProject])
+
+  // Keep new output in view only while the reader is at the tail; never
+  // pull them back down after they scroll up to inspect earlier messages.
+  useLayoutEffect(() => {
+    followTailRef.current = true
+    const body = bodyRef.current
+    if (body !== null) body.scrollTop = body.scrollHeight
+  }, [directorOpen, projectId, route])
+  useLayoutEffect(() => {
+    const body = bodyRef.current
+    if (followTailRef.current && body !== null) body.scrollTop = body.scrollHeight
+  }, [snapshot, sending])
 
   if (!directorOpen || projectId === undefined) return null
 
@@ -600,17 +614,26 @@ function DirectorPanel(props: DirectorProps) {
   const messages = snapshot?.nodes.map(textFromNode).filter((message): message is DirectorMessage => message !== undefined) ?? []
   const partial = snapshot?.partial?.blocks.filter(block => block.kind === 'text').map(block => block.text).join('\n').trim()
   const sendsToAi = draft.trim().length > 0 && !isNovelLocalCommand(draft.trim())
+  const aiRunning = snapshot?.running === true || (sending && sendsToAi)
+  const streaming = (partial?.length ?? 0) > 0
 
   return <>
     <button className="overlay show overlay-button director-overlay" type="button" aria-label="关闭导演助手" onClick={props.close} />
     <aside className="drawer open assistant-drawer" aria-label="导演助手">
       <div className="drawer-head"><b>导演助手</b><span className="badge">{directorLabel}</span><div className="grow" /><button className="icon-btn" type="button" onClick={props.close}>×</button></div>
-      <div className="drawer-body director-body">
+      <div className="drawer-body director-body" ref={bodyRef} onScroll={event => {
+        const body = event.currentTarget
+        followTailRef.current = body.scrollHeight - body.scrollTop - body.clientHeight <= 72
+      }}>
         <div className="assistant-msg">{activityMessage}</div>
+        <div className="small-card"><h4>需要作者确认的操作</h4><p>{confirmationMessage}</p></div>
         {snapshot === undefined && <div className="assistant-msg">正在连接当前项目的{directorLabel}会话…</div>}
         {messages.map((message, index) => <div className={message.kind === 'error' ? 'error top-gap' : `assistant-msg${message.kind === 'user' ? ' user' : ''}`} role={message.kind === 'error' ? 'alert' : undefined} key={`${message.role}-${index}`}><b>{message.role}</b><div>{message.text}</div></div>)}
-        {partial !== undefined && partial.length > 0 && <div className="assistant-msg"><b>导演助手</b><div>{partial}</div></div>}
-        <div className="small-card"><h4>需要作者确认的操作</h4><p>{confirmationMessage}</p></div>
+        {streaming && <div className={aiRunning ? 'assistant-msg director-streaming' : 'assistant-msg'} aria-live="off"><b>导演助手</b><div>{partial}</div></div>}
+        {aiRunning && <div className="assistant-msg director-running" role="status" aria-live="polite">
+          <span className="director-stream-dots" aria-hidden="true"><i /><i /><i /></span>
+          {streaming ? '正在输出…' : 'AI 正在思考…'}
+        </div>}
         {notice !== undefined && <div className="notice top-gap" role="status" style={{ whiteSpace: 'pre-wrap' }}>{notice}</div>}
         {snapshot?.promptError !== null && snapshot?.promptError !== undefined && <div className="error top-gap" role="alert">{snapshot.promptError.error.message}</div>}
         {error !== undefined && <div className="error top-gap" role="alert">{error}</div>}
