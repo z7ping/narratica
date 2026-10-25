@@ -11,14 +11,16 @@
       "default": "./lib/index.js"
     }
   },
-  "files": ["lib"],
+  "files": [
+    "lib"
+  ],
   "dependencies": {
     "@narratica/contracts": "workspace:*"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "4.0.1"
+    "@deepseek-ai/cordis": "4.0.5"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "4.0.1"
+    "@deepseek-ai/cordis": "4.0.5"
   }
 }
