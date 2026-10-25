@@ -18,6 +18,10 @@
       "types": "./lib/types/client/ui.d.ts",
       "default": "./lib/ui.js"
     },
+    "./markdown": {
+      "types": "./lib/types/client/markdown.d.ts",
+      "default": "./lib/markdown.js"
+    },
     "./package.json": "./package.json"
   },
   "dsh": {
@@ -40,5 +44,8 @@
   ],
   "devDependencies": {
     "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.3"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-rc.3"
   }
 }

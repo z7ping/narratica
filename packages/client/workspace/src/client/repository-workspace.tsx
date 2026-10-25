@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { MarkdownDocument } from '@narratica/client-layout/markdown'
 
 import type {
   NovelClosureArtifactFreshness,
@@ -196,6 +197,8 @@ function ArtifactDetail({ detail, repositoryPath, freshness, freshnessLoading, o
   readonly onFocusScene: ((sceneId: string) => void) | undefined
 }) {
   const metadataEntries = Object.entries(detail.metadata)
+  const isMarkdown = /\.(md|markdown)$/i.test(detail.path)
+  const [showSource, setShowSource] = useState(false)
   const [authorityLabel, authorityReason] = authorityCopy(detail)
   const sceneId = detail.metadata.scene_id
   const canFocusScene = onFocusScene !== undefined && sceneId !== undefined && /^chapter-\d{3,}-scene-\d{2,}$/.test(sceneId) && (detail.artifactKind === 'prose' || detail.artifactKind === 'draft')
@@ -207,7 +210,7 @@ function ArtifactDetail({ detail, repositoryPath, freshness, freshnessLoading, o
     </div>
     <div className="small-card"><h4>当前有效性</h4>{freshnessLoading ? <p className="meta">正在按当前作品版本核对…</p> : freshness !== undefined ? <div className="workspace-freshness"><span className={`badge ${freshnessClass(freshness.freshness)}`}>{freshnessLabel(freshness.freshness)}</span><div className="value">{freshness.reason}</div></div> : <div className="workspace-freshness"><span className="badge">{authorityLabel}</span><div className="value">{authorityReason}</div></div>}</div>
     {detail.links.length > 0 && <div className="small-card"><h4>来源与依赖</h4><div className="checklist">{detail.links.map((link, index) => <button className="workspace-link" type="button" key={`${link.kind}:${link.targetPath}:${index}`} onClick={() => { onSelectLink(link.targetPath) }}><span className="badge">{linkLabel(link)}</span><span>{link.targetPath}</span>{link.expectedRevision !== null && <code>来源版本 {link.expectedRevision}</code>}</button>)}</div></div>}
-    <div className="small-card"><h4>当前文件内容</h4><pre className="workspace-source"><code>{detail.content}</code></pre></div>
+    <div className="small-card"><div className="row"><h4>当前文件内容</h4><div className="grow" />{isMarkdown && <button type="button" className="btn mini" onClick={() => { setShowSource(value => !value) }}>{showSource ? '预览' : '源码'}</button>}</div>{isMarkdown && !showSource ? <MarkdownDocument text={detail.content} /> : <pre className="workspace-source"><code>{detail.content}</code></pre>}</div>
     <details className="workspace-advanced"><summary>高级信息</summary><div className="workspace-advanced-body"><div className="checklist"><div className="check"><span>内部分类</span><code>{detail.authority}</code></div><div className="check"><span>文件类型</span><code>{detail.artifactKind}</code></div><div className="check"><span>大小</span><span>{detail.byteLength.toLocaleString()} B</span></div></div><h4>文件头元数据</h4>{metadataEntries.length === 0 ? <p className="meta">没有文件头元数据。</p> : <div className="checklist">{metadataEntries.map(([key, value]) => <div className="check" key={key}><span>{key}</span><code>{value}</code></div>)}</div>}</div></details>
   </div>
 }
@@ -263,7 +266,7 @@ export function RepositoryWorkspacePanel({ projectId, stories, initialPath, onIn
       {projection !== undefined && <div className="workspace-location top-gap"><strong>作品工作空间</strong><span className="meta">本机完整路径</span><code>{projection.repositoryPath}</code><span className="meta">{projection.nodeCount} 个文件或目录 · 最近读取 {new Date(projection.scannedAt).toLocaleString()}{projection.truncated ? ' · 已达到读取上限' : ''}</span></div>}
       {error !== undefined && <div className="notice danger top-gap" role="alert">{error}</div>}
       {loading && <p className="meta top-gap">正在读取真实工作空间…</p>}
-      {projection !== undefined && <div className="workspace-explorer top-gap"><div className="workspace-tree">{view === 'raw' ? rootNodes.map(node => <TreeNode key={node.path} node={node} nodes={projection.nodes} selected={selectedPath} onSelect={path => { void selectArtifact(path) }} depth={0} />) : <SemanticWorkspace nodes={projection.nodes} selected={selectedPath} onSelect={path => { void selectArtifact(path) }} />}</div><div className="workspace-preview">{detail === undefined ? <div className="workspace-empty">选择一个文件查看相对路径、当前内容、用途、版本、有效性、来源与依赖。</div> : <ArtifactDetail detail={detail} repositoryPath={projection.repositoryPath} freshness={freshness} freshnessLoading={freshnessLoading} onSelectLink={path => { void selectArtifact(path) }} onFocusScene={onFocusScene} />}</div></div>}
+      {projection !== undefined && <div className="workspace-explorer top-gap"><div className="workspace-tree">{view === 'raw' ? rootNodes.map(node => <TreeNode key={node.path} node={node} nodes={projection.nodes} selected={selectedPath} onSelect={path => { void selectArtifact(path) }} depth={0} />) : <SemanticWorkspace nodes={projection.nodes} selected={selectedPath} onSelect={path => { void selectArtifact(path) }} />}</div><div className="workspace-preview">{detail === undefined ? <div className="workspace-empty">选择一个文件查看相对路径、当前内容、用途、版本、有效性、来源与依赖。</div> : <ArtifactDetail key={detail.path} detail={detail} repositoryPath={projection.repositoryPath} freshness={freshness} freshnessLoading={freshnessLoading} onSelectLink={path => { void selectArtifact(path) }} onFocusScene={onFocusScene} />}</div></div>}
     </div>
   </section>
 }

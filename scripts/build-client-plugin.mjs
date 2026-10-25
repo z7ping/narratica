@@ -40,6 +40,11 @@ const dshPurityGate = {
     buildApi.onResolve({ filter: /^@deepseek-ai\// }, args => {
       // rc.3 生成的 Remote 元数据使用无导入、无注册副作用的纯辅助模块。
       if (args.path === '@deepseek-ai/dsh-typert-protocol/remote-info') return undefined
+      // Bundle DSH's pure browser Markdown UI; never treat it as a Cordis plugin.
+      if (args.path === '@deepseek-ai/dsh-client-ui-primitives'
+        || args.path === '@deepseek-ai/dsh-util-workspace-path'
+        || args.path === '@deepseek-ai/dsh-util-code-language'
+        || args.path === '@deepseek-ai/dsh-util-file-drag') return undefined
       if (isPlatformExternal(args.path)) return { path: args.path, external: true }
       throw new Error(
         `Narratica client bundle cannot import DSH runtime value "${args.path}". `
@@ -81,22 +86,32 @@ await build({
 })
 
 const clientEntry = await firstExisting(clientEntryTsx, clientEntryTs, clientTsx, clientTs)
-await build({
+const clientOutput = await build({
   entryPoints: [clientEntry],
   bundle: true,
   format: 'cjs',
   platform: 'browser',
   target: ['es2020'],
   jsx: 'automatic',
-  loader: { '.svg': 'dataurl' },
+  loader: { '.svg': 'dataurl', '.woff': 'dataurl', '.woff2': 'dataurl', '.ttf': 'dataurl' },
   outfile: bodyFile,
+  write: false,
   external: PLATFORM_EXTERNALS,
   plugins: [dshPurityGate],
 })
-
-const body = await readFile(bodyFile, 'utf8')
+const body = clientOutput.outputFiles.find(file => file.path === bodyFile)?.text
+if (body === undefined) throw new Error(`Client JavaScript was not emitted: ${moduleId}`)
+const styles = clientOutput.outputFiles.filter(file => file.path.endsWith('.css')).map(file => file.text).join('\n')
+const styleBoot = styles.length === 0 ? '' : `
+if (typeof document !== 'undefined' && !document.getElementById(${JSON.stringify(moduleId + '-styles')})) {
+  const style = document.createElement('style');
+  style.id = ${JSON.stringify(moduleId + '-styles')};
+  style.textContent = ${JSON.stringify(styles)};
+  document.head.appendChild(style);
+}
+`
 // 保留源文本，缩进整段 JS 会改变模板字符串中的导演路由标记等内容。
-const wrapped = `window.__ModuleLoader__.load({\n\tid: ${JSON.stringify(moduleId)},\n\tfactory: (require) => {\n\t\tvar module = { exports: {} };\n\t\tvar exports = module.exports;\n${body}\n\t\treturn module.exports;\n\t}\n});\n`
+const wrapped = `window.__ModuleLoader__.load({\n\tid: ${JSON.stringify(moduleId)},\n\tfactory: (require) => {\n\t\tvar module = { exports: {} };\n\t\tvar exports = module.exports;\n${styleBoot}${body}\n\t\treturn module.exports;\n\t}\n});\n`
 await writeFile(clientFile, wrapped)
 await rm(bodyFile, { force: true })
 
@@ -119,4 +134,15 @@ if (sharedUiEntry) {
   })
 }
 
+if (moduleId === '@narratica/client-layout') {
+  await build({
+    entryPoints: [join(packageRoot, 'src/client/markdown.tsx')],
+    bundle: false,
+    format: 'esm',
+    platform: 'browser',
+    target: ['es2020'],
+    jsx: 'automatic',
+    outfile: join(libDir, 'markdown.js'),
+  })
+}
 console.log(`Built DSH client plugin ${moduleId}`)

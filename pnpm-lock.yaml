@@ -173,6 +173,9 @@ importers:
 
   packages/client/layout:
     dependencies:
+      '@deepseek-ai/dsh-client-ui-primitives':
+        specifier: 0.2.1-rc.3
+        version: 0.2.1-rc.3(@deepseek-ai/cordis@4.0.5)
       '@deepseek-ai/dsh-api-session-controller':
         specifier: 0.2.1-rc.3
         version: 0.2.1-rc.3(7dd85cd125d9505526373716e74413ac)
@@ -189,6 +192,9 @@ importers:
 
   packages/client/novel:
     dependencies:
+      '@narratica/client-layout':
+        specifier: workspace:*
+        version: link:../layout
       '@deepseek-ai/cordis':
         specifier: 4.0.5
         version: 4.0.5(@deepseek-ai/cordis-plugin-include@1.0.10)(@deepseek-ai/cordis-plugin-loader@1.0.6)
