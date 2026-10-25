@@ -18,6 +18,7 @@ export {
   NarraticaDirectorClient,
 }
 export type {
+  DirectorConversationSnapshot,
   DirectorSessionSource,
   DirectorSubmitResult,
   NarraticaDirectorRoute,
