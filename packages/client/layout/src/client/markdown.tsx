@@ -14,6 +14,13 @@ export function MarkdownDocument({ text, compact = false }: { readonly text: str
   return <div className={`narratica-markdown${compact ? ' compact' : ''}`} dangerouslySetInnerHTML={{ __html: html }} />
 }
 
+/** Headings are derived only from current Markdown; no secondary outline store. */
+export function extractMarkdownHeadings(text: string): readonly { depth: number; title: string }[] {
+  return parser.lexer(text).flatMap(token => token.type === 'heading'
+    ? [{ depth: token.depth, title: token.text.trim() }]
+    : [])
+}
+
 /** Authoring stays in Markdown: previews never change file bytes or bypass draft confirmation. */
 export function MarkdownDraftField({
   value, onChangeText, rows, disabled, readOnly = false, placeholder, textareaClassName = 'input', label = 'Markdown 源码',
