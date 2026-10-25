@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AiActionHint } from '@narratica/client-layout/ui'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { ConversationNode } from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -74,6 +75,12 @@ const CONFIRM_RELATION = /^确认关系\s+([A-Za-z0-9][A-Za-z0-9._-]*)[。！!]*
 const PREVIEW_REMOVE_RELATION = /^预览删除关系\s+([A-Za-z0-9][A-Za-z0-9._-]*)[。！!]*$/
 const CONFIRM_REMOVE_RELATION = /^确认删除关系\s+([A-Za-z0-9][A-Za-z0-9._-]*)[。！!]*$/
 const DISMISS_RELATION = /^驳回关系\s+([A-Za-z0-9][A-Za-z0-9._-]*)[。！!]*$/
+/** Single classification for the composer hint and deterministic command dispatch. */
+const NOVEL_LOCAL_COMMANDS: readonly RegExp[] = [PREVIEW_SETTING, SAVE_SETTING, PREVIEW_SETTING_RESTORE, CONFIRM_SETTING_RESTORE, PREVIEW_OUTLINE, APPLY_OUTLINE, PREVIEW_EXTRACTED_OUTLINE, APPLY_EXTRACTED_OUTLINE, PREVIEW_GOLDEN_THREE, APPLY_GOLDEN_THREE, PREVIEW_RELATION, CONFIRM_RELATION, PREVIEW_REMOVE_RELATION, CONFIRM_REMOVE_RELATION, DISMISS_RELATION]
+function isNovelLocalCommand(text: string): boolean {
+  return NOVEL_LOCAL_COMMANDS.some(rule => rule.test(text))
+}
+
 const DIRECTOR_ENVELOPE_COMMAND = /^\/(?:novel-director|novel-to-short-drama|short-drama-director)$/
 
 function visibleDirectorUserText(text: string): string {
@@ -559,21 +566,7 @@ function DirectorPanel(props: DirectorProps) {
       const previewRemoveRelationMatch = PREVIEW_REMOVE_RELATION.exec(text)
       const confirmRemoveRelationMatch = CONFIRM_REMOVE_RELATION.exec(text)
       const dismissRelationMatch = DISMISS_RELATION.exec(text)
-      const novelLocalCommand = PREVIEW_SETTING.test(text)
-        || SAVE_SETTING.test(text)
-        || previewRestoreMatch?.[1] !== undefined
-        || confirmRestoreMatch?.[1] !== undefined
-        || previewExtractedOutlineMatch?.[1] !== undefined
-        || applyExtractedOutlineMatch?.[1] !== undefined
-        || previewGoldenThreeMatch?.[1] !== undefined
-        || applyGoldenThreeMatch?.[1] !== undefined
-        || (previewOutlineMatch?.[1] !== undefined && previewOutlineMatch[2] !== undefined)
-        || (applyOutlineMatch?.[1] !== undefined && applyOutlineMatch[2] !== undefined)
-        || previewRelationMatch?.[1] !== undefined
-        || confirmRelationMatch?.[1] !== undefined
-        || previewRemoveRelationMatch?.[1] !== undefined
-        || confirmRemoveRelationMatch?.[1] !== undefined
-        || dismissRelationMatch?.[1] !== undefined
+      const novelLocalCommand = isNovelLocalCommand(text)
       if (route !== 'novel' && novelLocalCommand) throw new Error(`当前是${directorLabel}会话；这个命令属于小说导演的本地确认流程，请切换到“小说创作”后再执行。`)
       if (route === 'novel' && PREVIEW_SETTING.test(text)) await previewSettings()
       else if (route === 'novel' && SAVE_SETTING.test(text)) await saveSettings()
@@ -606,6 +599,7 @@ function DirectorPanel(props: DirectorProps) {
 
   const messages = snapshot?.nodes.map(textFromNode).filter((message): message is DirectorMessage => message !== undefined) ?? []
   const partial = snapshot?.partial?.blocks.filter(block => block.kind === 'text').map(block => block.text).join('\n').trim()
+  const sendsToAi = draft.trim().length > 0 && !isNovelLocalCommand(draft.trim())
 
   return <>
     <button className="overlay show overlay-button director-overlay" type="button" aria-label="关闭导演助手" onClick={props.close} />
@@ -622,7 +616,7 @@ function DirectorPanel(props: DirectorProps) {
         {error !== undefined && <div className="error top-gap" role="alert">{error}</div>}
         <form className="assistant-input director-input" onSubmit={event => { event.preventDefault(); void submit() }}>
           <input className="input" aria-label="给导演助手发消息" value={draft} disabled={snapshot === undefined || snapshot.removed} onChange={event => { setDraft(event.target.value) }} placeholder={inputPlaceholder} />
-          <button className="btn primary" type="submit" disabled={snapshot === undefined || sending || snapshot.removed || draft.trim().length === 0}>{sending ? '处理中…' : '发送'}</button>
+          <button className="btn primary" type="submit" disabled={snapshot === undefined || sending || snapshot.removed || draft.trim().length === 0}>{sending ? '处理中…' : '发送'} {sendsToAi && <AiActionHint />}</button>
           {snapshot?.running && <button className="btn" type="button" onClick={() => { void props.cancel(projectId).catch(reason => { setError(reason instanceof Error ? reason.message : String(reason)) }) }}>停止</button>}
         </form>
       </div>
