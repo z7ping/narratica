@@ -4,7 +4,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { InjectFace, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ProjectId } from '@narratica/contracts'
 import type { NarraticaSurfaceController } from '@narratica/client-layout/client'
-import { NarraticaMark, NarraticaWordmark } from '@narratica/client-layout/ui'
+import { AiActionHint, NarraticaMark, NarraticaWordmark } from '@narratica/client-layout/ui'
 import type {
   NarraticaDirectorClient,
   NarraticaDirectorRoute,
@@ -202,6 +202,13 @@ const MODE3_VIEW_BY_TOOL: Readonly<Partial<Record<string, Parameters<typeof sele
   edit: 'edit',
   export: 'export',
 }
+/** Navigation-only and open-assistant actions must not look like model execution. */
+function toolStartsAi(mode: ProductMode, tool: ToolDefinition): boolean {
+  if (mode === 'novel') return !MODE1_LIBRARY_TOOLS.has(tool.id) && !MODE1_ASSISTANT_TOOLS.has(tool.id) && (tool.instruction !== undefined || MODE1_TOOL_INSTRUCTIONS[tool.id] !== undefined)
+  if (mode === 'screenplay') return tool.id === 'continuity'
+  return tool.id === 'imgprompt' || tool.id === 'vidprompt'
+}
+
 const MODE3_DIRECTOR_INSTRUCTIONS: Readonly<Partial<Record<string, string>>> = {
   imgprompt: '请检查当前正式分镜与已采用视觉资产，为当前待生产镜头提供或优化图片提示词。只处理提示词与生产建议，不执行生成、不采用候选、不确认交付。',
   vidprompt: '请检查当前正式分镜、当前镜头图片和连续性约束，为当前待生产镜头提供或优化视频提示词。只处理提示词与生产建议，不执行生成、不采用候选、不确认交付。',
@@ -311,8 +318,8 @@ function NarraticaTopbar(props: TopbarProps) {
       if (MODE1_ASSISTANT_TOOLS.has(tool.id)) { await openAssistant(); return }
       const instruction = tool.instruction ?? MODE1_TOOL_INSTRUCTIONS[tool.id]
       if (instruction !== undefined && !opening) {
-        setOpening(true); setError(undefined)
-        try { await props.prepareDirector(workspace.projectId, 'novel'); await props.runDirector(workspace.projectId, instruction); closeFloating(); props.showDirector() }
+        setOpening(true); setError(undefined); setToast('正在调用 AI 导演…')
+        try { await props.prepareDirector(workspace.projectId, 'novel'); await props.runDirector(workspace.projectId, instruction); closeFloating(); props.showDirector(); setToast('已提交给 AI 导演，请在助手中查看结果') }
         catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)) }
         finally { setOpening(false) }
         return
@@ -323,12 +330,12 @@ function NarraticaTopbar(props: TopbarProps) {
       const nextStage = MODE2_STAGE_BY_TOOL[tool.id]
       if (nextStage !== undefined) { selectMode2Stage(nextStage); publishCoreView('workbench'); closeFloating(); return }
       if (tool.id === 'continuity' && !opening) {
-        setOpening(true); setError(undefined)
+        setOpening(true); setError(undefined); setToast('正在调用 AI 导演…')
         try {
           selectMode2Stage('storyboard')
           await props.prepareDirector(workspace.projectId, 'screenplay-preproduction')
           await props.runDirector(workspace.projectId, '请检查当前正式剧本、已采用视觉资产与当前分镜的连续性，重点检查人物状态、空间方向、道具、动作接续、信息呈现与版本新鲜度。只报告问题或更新待确认影视前期产物，不执行任何采用或确认。')
-          closeFloating(); props.showDirector()
+          closeFloating(); props.showDirector(); setToast('已提交给 AI 导演，请在助手中查看结果')
         } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)) }
         finally { setOpening(false) }
         return
@@ -339,13 +346,13 @@ function NarraticaTopbar(props: TopbarProps) {
       if (nextView !== undefined) { selectMode3View(nextView); publishCoreView('workbench'); closeFloating(); return }
       const instruction = MODE3_DIRECTOR_INSTRUCTIONS[tool.id]
       if (instruction !== undefined && !opening) {
-        setOpening(true); setError(undefined)
+        setOpening(true); setError(undefined); setToast('正在调用 AI 导演…')
         try {
           selectMode3View('episode')
           publishCoreView('workbench')
           await props.prepareDirector(workspace.projectId, 'media-production')
           await props.runDirector(workspace.projectId, instruction)
-          closeFloating(); props.showDirector()
+          closeFloating(); props.showDirector(); setToast('已提交给 AI 导演，请在助手中查看结果')
         } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)) }
         finally { setOpening(false) }
         return
@@ -425,11 +432,11 @@ function NarraticaTopbar(props: TopbarProps) {
 
     {panel === 'stories' && <div className="modal open story-menu"><div className="modal-head"><b>切换故事</b><div className="grow" /><button className="icon-btn" type="button" onClick={closeFloating}>×</button></div><div className="modal-body">{stories.projects.map(item => <button className={`source-card click story-menu-item${item.projectId === workspace.projectId ? ' active' : ''}`} type="button" key={item.projectId} onClick={() => { publishMode('novel'); publishCoreView('workbench'); props.openNovel(item.projectId); closeFloating() }}><div className="source-title">{item.title}</div><div className="meta">{item.projectId === workspace.projectId ? `${MODE_LABELS[mode]} · 当前故事` : '打开故事'}</div></button>)}<button className="btn full" type="button" onClick={() => { publishMode('novel'); publishCoreView('workbench'); props.openLibrary(); closeFloating() }}>管理全部故事</button></div></div>}
     {hasOverlay && <button className="overlay show overlay-button" type="button" aria-label="关闭浮层" onClick={closeFloating} />}
-    {panel === 'tools' && <aside className="drawer open"><div className="drawer-head"><b>工具箱</b><span className="badge">{MODE_LABELS[mode]}</span><div className="grow" /><button className="icon-btn" type="button" onClick={closeFloating}>×</button></div><div className="drawer-body">{TOOL_GROUPS[mode].map(group => <div className="drawer-section" key={group.title}><div className="drawer-title">{group.title}</div><div className="tool-grid">{group.tools.map(tool => { const unavailable = mode === 'novel' ? MODE1_UNAVAILABLE[tool.id] : undefined; return <button className="tool-card" type="button" key={tool.id} onClick={() => { void runTool(tool) }}><div><b>{tool.label}</b><span className={`badge ${unavailable === undefined ? 'good' : 'warn'}`}>{unavailable === undefined ? '可用' : '暂不可用'}</span></div><p>{tool.description}</p></button> })}</div></div>)}</div></aside>}
+    {panel === 'tools' && <aside className="drawer open"><div className="drawer-head"><b>工具箱</b><span className="badge">{MODE_LABELS[mode]}</span><div className="grow" /><button className="icon-btn" type="button" onClick={closeFloating}>×</button></div><div className="drawer-body">{TOOL_GROUPS[mode].map(group => <div className="drawer-section" key={group.title}><div className="drawer-title">{group.title}</div><div className="tool-grid">{group.tools.map(tool => { const unavailable = mode === 'novel' ? MODE1_UNAVAILABLE[tool.id] : undefined; return <button className="tool-card" type="button" key={tool.id} disabled={opening} title={toolStartsAi(mode, tool) ? `会调用 AI：${tool.description}` : tool.description} onClick={() => { void runTool(tool) }}><div><b>{tool.label}</b>{toolStartsAi(mode, tool) && <AiActionHint />}<span className={`badge ${unavailable === undefined ? 'good' : 'warn'}`}>{unavailable === undefined ? '可用' : '暂不可用'}</span></div><p>{tool.description}</p></button> })}</div></div>)}</div></aside>}
     {panel === 'tasks' && <div className="modal open generic-modal"><div className="modal-head"><b>任务中心</b><span className="badge good">生产运行可观察</span><div className="grow" /><button className="icon-btn" type="button" onClick={closeFloating}>×</button></div><div className="modal-body"><div className="notice">当前作品的真实生产任务、尝试、候选媒体和采用状态已经接入“媒体生产”四个工作台。任务中心这里只作为运行状态入口，不制造第二套生产事实。</div><div className="small-card top-gap"><h4>恢复规则</h4><p>运行数据库会持久化生产任务；宿主重启时遗留的运行中尝试会确定性收口为失败，不会伪装成仍在执行。</p></div></div><div className="modal-actions"><button className="btn" type="button" onClick={() => { closeFloating(); publishCoreView('workbench') }}>打开媒体生产</button></div></div>}
     {panel === 'preview' && <div className="modal open generic-modal"><div className="modal-head"><b>作品预览 · Quartz</b><span className="badge good">当前作品配置</span><div className="grow" /><button className="icon-btn" type="button" disabled={previewBusy} onClick={closeFloating}>×</button></div><div className="modal-body"><div className="value">Narratica 不会自动猜测 Quartz 地址，也不会替你启动外部阅读站点。这里保存当前故事对应的 Quartz 阅读地址。</div><div className="form-row top-gap"><div className="label">Quartz 阅读地址</div><input className="input" value={previewUrl} onChange={event => { setPreviewUrl(event.target.value) }} placeholder="例如 http://localhost:8080/ 或已部署的 HTTPS 地址" /></div><div className="meta">地址会保存到当前作品配置。留空保存可清除绑定。</div>{error !== undefined && <div className="error top-gap" role="alert">{error}</div>}</div><div className="modal-actions">{previewState?.url !== null && previewState?.url !== undefined && <button className="btn" type="button" disabled={previewBusy} onClick={() => { const opened = window.open(previewState.url!, '_blank', 'noopener,noreferrer'); if (opened === null) setError('浏览器阻止了作品预览窗口，请允许弹出窗口后重试。') }}>打开当前预览</button>}<button className="btn primary" type="button" disabled={previewBusy || previewState === undefined} onClick={() => { void savePreview() }}>{previewBusy ? '保存中…' : '保存地址'}</button></div></div>}
     {panel === 'detail' && selectedTool !== undefined && <div className="modal open generic-modal"><div className="modal-head"><b>{unavailableReason !== undefined ? `${selectedTool.label} · 暂不可用` : toolDetail?.[0] ?? selectedTool.label}</b>{unavailableReason !== undefined && <span className="badge warn">不可执行</span>}<div className="grow" /><button className="icon-btn" type="button" onClick={closeFloating}>×</button></div><div className="modal-body">{unavailableReason !== undefined ? <><div className="notice warn">{unavailableReason}</div><div className="small-card top-gap"><h4>当前行为</h4><p>这里只说明能力边界，不写入作品、不启动导演，也不返回伪造结果。</p></div></> : <><div className="value">{toolDetail?.[1] ?? '该能力请从当前模式工作台进入。'}</div></>}</div><div className="modal-actions"><button className="btn" type="button" onClick={closeFloating}>关闭</button></div></div>}
-    {panel === 'command' && <div className="command open" role="dialog" aria-label="搜索与命令"><input autoFocus placeholder="搜索故事、章节、镜头，或输入动作……" value={commandQuery} onChange={event => { setCommandQuery(event.target.value) }} /><div className="cmd-list">{commandMatches('进入小说创作') && <button className="cmd click" type="button" onClick={() => { selectMode('novel') }}><span>进入小说创作</span><span>小说创作</span></button>}{commandMatches('进入剧本与分镜') && <button className="cmd click" type="button" onClick={() => { selectMode('screenplay') }}><span>进入剧本与分镜</span><span>剧本与分镜</span></button>}{commandMatches('进入媒体生产') && <button className="cmd click" type="button" onClick={() => { selectMode('production') }}><span>进入媒体生产</span><span>媒体生产</span></button>}{commandMatches('新建故事') && <button className="cmd click" type="button" onClick={() => { publishMode('novel'); publishCoreView('workbench'); props.openLibrary(); closeFloating() }}><span>新建 / 导入故事</span><span>故事管理</span></button>}{commandMatches('作品预览') && mode === 'novel' && <button className="cmd click" type="button" onClick={() => { closeFloating(); void openPreview() }}><span>打开作品预览</span><span>Quartz</span></button>}{commandMatches('打开创作流程') && <button className="cmd click" type="button" onClick={() => { selectCoreView('flow') }}><span>打开创作流程</span><span>{MODE_LABELS[mode]}</span></button>}{commandMatches('打开工作空间') && <button className="cmd click" type="button" onClick={() => { selectCoreView('workspace') }}><span>打开工作空间</span><span>作品文件</span></button>}{commandMatches('打开创作方法') && <button className="cmd click" type="button" onClick={() => { selectCoreView('methods') }}><span>打开创作方法</span><span>{MODE_LABELS[mode]}</span></button>}{commandMatches('查看当前上下文') && <button className="cmd click" type="button" onClick={() => { const tool = TOOL_GROUPS.novel[2]?.tools[1]; if (tool !== undefined) void runTool(tool) }}><span>查看当前上下文</span><span>当前作品</span></button>}{commandMatches('打开生成任务中心') && mode === 'production' && <button className="cmd click" type="button" onClick={() => { setPanel('tasks') }}><span>打开生成任务中心</span><span>运行状态</span></button>}</div></div>}
+    {panel === 'command' && <div className="command open" role="dialog" aria-label="搜索与命令"><input autoFocus placeholder="搜索故事、章节、镜头，或输入动作……" value={commandQuery} onChange={event => { setCommandQuery(event.target.value) }} /><div className="cmd-list">{commandMatches('进入小说创作') && <button className="cmd click" type="button" onClick={() => { selectMode('novel') }}><span>进入小说创作</span><span>小说创作</span></button>}{commandMatches('进入剧本与分镜') && <button className="cmd click" type="button" onClick={() => { selectMode('screenplay') }}><span>进入剧本与分镜</span><span>剧本与分镜</span></button>}{commandMatches('进入媒体生产') && <button className="cmd click" type="button" onClick={() => { selectMode('production') }}><span>进入媒体生产</span><span>媒体生产</span></button>}{commandMatches('新建故事') && <button className="cmd click" type="button" onClick={() => { publishMode('novel'); publishCoreView('workbench'); props.openLibrary(); closeFloating() }}><span>新建 / 导入故事</span><span>故事管理</span></button>}{commandMatches('作品预览') && mode === 'novel' && <button className="cmd click" type="button" onClick={() => { closeFloating(); void openPreview() }}><span>打开作品预览</span><span>Quartz</span></button>}{commandMatches('打开创作流程') && <button className="cmd click" type="button" onClick={() => { selectCoreView('flow') }}><span>打开创作流程</span><span>{MODE_LABELS[mode]}</span></button>}{commandMatches('打开工作空间') && <button className="cmd click" type="button" onClick={() => { selectCoreView('workspace') }}><span>打开工作空间</span><span>作品文件</span></button>}{commandMatches('打开创作方法') && <button className="cmd click" type="button" onClick={() => { selectCoreView('methods') }}><span>打开创作方法</span><span>{MODE_LABELS[mode]}</span></button>}{commandMatches('查看当前上下文') && <button className="cmd click" type="button" onClick={() => { const tool = TOOL_GROUPS.novel[2]?.tools[1]; if (tool !== undefined) void runTool(tool) }}><span>查看当前上下文 <AiActionHint /></span><span>当前作品</span></button>}{commandMatches('打开生成任务中心') && mode === 'production' && <button className="cmd click" type="button" onClick={() => { setPanel('tasks') }}><span>打开生成任务中心</span><span>运行状态</span></button>}</div></div>}
     <div className={`toast${toast === undefined ? '' : ' show'}`} role="status">{toast ?? ''}</div>
   </>
 }

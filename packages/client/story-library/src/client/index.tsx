@@ -4,7 +4,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ImportNovelTextResult, InitializeNovelProjectResult, NovelWorkspaceProjection, ProjectId, StoryDomain } from '@narratica/contracts'
 import type { NarraticaSurfaceController } from '@narratica/client-layout/client'
-import { NarraticaMark, NarraticaWordmark } from '@narratica/client-layout/ui'
+import { AiActionHint, NarraticaMark, NarraticaWordmark } from '@narratica/client-layout/ui'
 import type { NarraticaDirectorClient, NarraticaStoriesClient, NarraticaWorkspaceClient, StoryClientSnapshot } from '@narratica/client-runtime/client'
 import type {} from '@narratica/client-runtime/client'
 import type {} from '@narratica/client-workspace/client'
@@ -187,7 +187,7 @@ function StoryLibrary(props: StoryLibraryProps) {
             </div>}
             {modal === 'quick' && <>
               <div className="form-row top-gap"><div className="label">故事想法</div><textarea className="textarea" value={quickIdea} onChange={event => { setQuickIdea(event.target.value) }} placeholder="写下一句话、一个人物、一个冲突或几个零散片段" /></div>
-              <div className="notice"><strong>接下来会发生什么？</strong><br />创建后会打开真实小说导演，先围绕故事核心、主角和核心冲突推进；讨论或生成不会自动成为正式设定，仍由作者确认。</div>
+              <div className="notice"><strong>接下来会发生什么？</strong><br />点击「开始创作」将调用 AI 导演，可能消耗模型用量；生成的基础设定仍需作者确认，不会自动定稿。</div>
             </>}
             {modal === 'import' && <>
               <div className="form-row top-gap"><div className="label">小说文件（纯文本 / Markdown 文档）</div><input className="input" type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" onChange={event => { setImportFile(event.target.files?.[0]) }} /></div>
@@ -195,7 +195,7 @@ function StoryLibrary(props: StoryLibraryProps) {
             </>}
             {error !== undefined && <div className="error top-gap" role="alert">{error}</div>}
           </div>
-          <div className="modal-actions"><button className="btn" type="button" disabled={busy} onClick={closeModal}>关闭</button>{modal === 'quick' && <button className="btn primary" type="button" disabled={busy || quickIdea.trim().length === 0} onClick={() => { void createQuick() }}>{busy ? '创建中…' : '开始创作'}</button>}{modal === 'import' && <button className="btn primary" type="button" disabled={busy || importFile === undefined} onClick={() => { void createImport() }}>{busy ? '导入中…' : '创建并导入'}</button>}</div>
+          <div className="modal-actions"><button className="btn" type="button" disabled={busy} onClick={closeModal}>关闭</button>{modal === 'quick' && <button className="btn primary" type="button" disabled={busy || quickIdea.trim().length === 0} onClick={() => { void createQuick() }}>{busy ? '创建中…' : '开始创作'} <AiActionHint /></button>}{modal === 'import' && <button className="btn primary" type="button" disabled={busy || importFile === undefined} onClick={() => { void createImport() }}>{busy ? '导入中…' : '创建并导入'}</button>}</div>
         </div>
       </>}
     </section>
