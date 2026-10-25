@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ImportNovelTextResult, InitializeNovelProjectResult, NovelWorkspaceProjection, ProjectId, StoryDomain } from '@narratica/contracts'
 import type { NarraticaSurfaceController } from '@narratica/client-layout/client'

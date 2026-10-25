@@ -1,4 +1,5 @@
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 
 /**
  * DSH 0.2.1-rc.3 正式 Web 插槽桥：

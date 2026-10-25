@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { ConversationNode } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { DirectorConversationSnapshot } from '@narratica/client-runtime/client'
 import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
