@@ -215,7 +215,7 @@ export function apply(ctx: Context): void {
       openNovel: nextProjectId => workspace.openNovel(nextProjectId),
       quickStart: async (nextProjectId, idea) => {
         const sessionId = await director.createNovelSession(nextProjectId)
-        surface.focusSession(sessionId)
+        await surface.focusSession(sessionId)
         workspace.showDirector()
         await director.submitForProject(nextProjectId, `请加载“快速开始（quick-start）”创作方法。作者的故事想法是：${idea}\
 先和作者一起确认故事核心、主角和核心冲突，再建立唯一的设定工作稿；只修改工作稿，不直接保存为正式设定。完成后明确提示作者预览和确认，再进入第一章规划。`)

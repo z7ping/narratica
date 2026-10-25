@@ -55,7 +55,7 @@ export function NarraticaMark({ size = 32, className }: { readonly size?: number
 
 /** UI-only bridge for Narratica-owned Session staging while its workspace stays visible. */
 export interface NarraticaSurfaceController {
-  focusSession(sessionId: SessionId): void
+  focusSession(sessionId: SessionId): Promise<void>
 }
 
 declare module '@deepseek-ai/cordis' {
@@ -182,16 +182,22 @@ export function apply(ctx: ClientContext): void {
   }
 
   const surfaceController: NarraticaSurfaceController = {
-    focusSession(sessionId) {
+    async focusSession(sessionId) {
       if (ctx.layout.panelInfo.getSnapshot().activePanelId !== NARRATICA_PANEL_ID) {
         throw new Error('Narratica 工作区尚未打开，不能切换内部导演会话')
       }
-      if (directorReference?.sessionId === sessionId) return
+      if (directorReference?.sessionId === sessionId) { await directorReference.ready; return }
       const next = ctx.sessions.retain(sessionId, { source: 'narraticaDirector' })
       releaseDirector()
       directorReference = next
       // 读取准备阶段由 Client Session Controller 管理，不切换当前 DSH 会话。
-      void next.ready.catch(() => { if (directorReference === next) releaseDirector() })
+      try {
+        await next.ready
+        if (directorReference !== next) throw new Error('Narratica 导演会话加载已取消')
+      } catch (error) {
+        if (directorReference === next) releaseDirector()
+        throw error
+      }
     },
   }
 
