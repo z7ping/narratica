@@ -140,34 +140,30 @@ test('director runtime uses official DSH standard preset and deterministic skill
   assert.doesNotMatch(root.scripts['profile:mode1'], /sync-agent-presets/)
 })
 
-test('formal Client layout uses DSH footer action and conversation shadowing instead of root takeover', async () => {
+test('formal Client layout uses keyed main and DSH footer slot without Conversation takeover', async () => {
   const layout = await readFile('packages/client/layout/src/client/index.tsx', 'utf8')
   const bridge = await readFile('packages/client/layout/src/client/dsh-rc2-bridge.ts', 'utf8')
   const source = `${layout}\n${bridge}`
 
   assert.match(layout, /injectNarraticaFooterAction/)
-  assert.match(layout, /registerConversationShadow/)
-  assert.match(bridge, /name: 'sidebar\.footer\.action'/)
-  assert.match(bridge, /id: 'narratica'/)
-  assert.match(bridge, /name: 'conversation'/)
-  assert.match(bridge, /priority: -100/)
-  assert.match(bridge, /\.layout\s*$/m)
-  assert.match(bridge, /closeDetails\(\)/)
-  assert.doesNotMatch(bridge, /\.get\(['"]layout['"]\)/)
-  assert.match(layout, /disposeConversation/)
+  assert.match(layout, /registerNarraticaMain/)
+  assert.match(bridge, /name: 'sidebar\\.footer\\.action'/)
+  assert.match(bridge, /name: 'main'/)
+  assert.match(bridge, /key: 'narratica'/)
+  assert.doesNotMatch(bridge, /name: 'conversation'/)
+  assert.doesNotMatch(bridge, /priority: -100/)
   assert.doesNotMatch(source, /name: 'root'/)
-  assert.doesNotMatch(source, /shell\.overlay/)
 })
 
-test('formal Client layout declares DSH layout/sidebar activation without adding npm UI dependencies', async () => {
+test('formal Client layout declares new DSH host service injection without duplicating UI dependencies', async () => {
   const layout = await readJson('packages/client/layout/package.json')
   assert.deepEqual(layout.dsh.client.inject, [
-    '@deepseek-ai/dsh-client-runtime',
+    '@deepseek-ai/dsh-api-session-controller',
     '@deepseek-ai/dsh-client-ui-layout',
     '@deepseek-ai/dsh-client-ui-sidebar',
   ])
-  assert.equal(layout.peerDependencies['@deepseek-ai/dsh-client-ui-layout'], undefined)
-  assert.equal(layout.peerDependencies['@deepseek-ai/dsh-client-ui-sidebar'], undefined)
+  assert.equal(layout.peerDependencies?.['@deepseek-ai/dsh-client-ui-layout'], undefined)
+  assert.equal(layout.peerDependencies?.['@deepseek-ai/dsh-client-ui-sidebar'], undefined)
 })
 
 test('formal Client layout scopes Narratica CSS away from the DSH host', async () => {
