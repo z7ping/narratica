@@ -4,9 +4,17 @@ import DOMPurify from 'dompurify'
 
 const parser = new Marked({ gfm: true, breaks: false })
 
+/** Front matter is preserved in source mode but not shown as story prose. */
+function readingBody(text: string): string {
+  if (!text.startsWith('---\n') && !text.startsWith('---\r\n')) return text
+  const end = /^---\s*$/m.exec(text.slice(4))
+  if (!end) return text
+  return text.slice(4 + end.index + end[0].length).trimStart()
+}
+
 /** Render GFM and sanitize untrusted HTML and unsafe URLs. */
 export function MarkdownDocument({ text, compact = false }: { readonly text: string; readonly compact?: boolean }) {
-  const html = useMemo(() => DOMPurify.sanitize(parser.parse(text, { async: false }) as string, {
+  const html = useMemo(() => DOMPurify.sanitize(parser.parse(readingBody(text), { async: false }) as string, {
     USE_PROFILES: { html: true },
     FORBID_ATTR: ['style'],
     FORBID_TAGS: ['style', 'form', 'iframe'],
@@ -16,7 +24,7 @@ export function MarkdownDocument({ text, compact = false }: { readonly text: str
 
 /** Headings are derived only from current Markdown; no secondary outline store. */
 export function extractMarkdownHeadings(text: string): readonly { depth: number; title: string }[] {
-  return parser.lexer(text).flatMap(token => token.type === 'heading'
+  return parser.lexer(readingBody(text)).flatMap(token => token.type === 'heading'
     ? [{ depth: token.depth, title: token.text.trim() }]
     : [])
 }
