@@ -33,7 +33,7 @@ test('formal Narratica bundle is the only active Narratica bundle contract', asy
 
 test('formal Narratica layout no longer owns DSH root', async () => {
   const layout = await readFile('packages/client/layout/src/client/index.tsx', 'utf8')
-  const bridge = await readFile('packages/client/layout/src/client/dsh-rc2-bridge.ts', 'utf8')
+  const bridge = await readFile('packages/client/layout/src/client/dsh-rc3-bridge.ts', 'utf8')
   const source = `${layout}\n${bridge}`
 
   assert.doesNotMatch(source, /name: 'root'/)

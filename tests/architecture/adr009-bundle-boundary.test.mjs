@@ -142,7 +142,7 @@ test('director runtime uses official DSH standard preset and deterministic skill
 
 test('formal Client layout uses keyed main and DSH footer slot without Conversation takeover', async () => {
   const layout = await readFile('packages/client/layout/src/client/index.tsx', 'utf8')
-  const bridge = await readFile('packages/client/layout/src/client/dsh-rc2-bridge.ts', 'utf8')
+  const bridge = await readFile('packages/client/layout/src/client/dsh-rc3-bridge.ts', 'utf8')
   const source = `${layout}\n${bridge}`
 
   assert.match(layout, /injectNarraticaFooterAction/)

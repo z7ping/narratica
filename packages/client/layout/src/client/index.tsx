@@ -9,7 +9,7 @@ import {
   injectNarraticaFooterAction,
   registerNarraticaMain,
   type NarraticaFooterActionProps,
-} from './dsh-rc2-bridge.js'
+} from './dsh-rc3-bridge.js'
 import { DESIGN_TOKENS, DESIGN_TOKENS_STYLE_ID } from './design-tokens.js'
 import { DIRECTOR_ASSISTANT_STYLES, DIRECTOR_ASSISTANT_STYLE_ID } from './director-assistant.js'
 import { NOVEL_SECONDARY_STYLES, NOVEL_SECONDARY_STYLE_ID } from './novel-secondary.js'
