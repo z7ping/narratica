@@ -1,5 +1,6 @@
 export * from './story.js'
 export * from './project-lifecycle.js'
+export * from './library.js'
 export * from './author-assets.js'
 export * from './mutation.js'
 export * from './screenplay.js'

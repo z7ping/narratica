@@ -384,6 +384,9 @@ importers:
       '@narratica/story-core':
         specifier: workspace:*
         version: link:../../core/story
+      yaml:
+        specifier: 2.9.0
+        version: 2.9.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3

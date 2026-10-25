@@ -8,8 +8,10 @@ import { NarraticaMark, NarraticaWordmark } from '@narratica/client-layout/ui'
 import type { NarraticaDirectorClient, NarraticaStoriesClient, NarraticaWorkspaceClient, StoryClientSnapshot } from '@narratica/client-runtime/client'
 import type {} from '@narratica/client-runtime/client'
 import type {} from '@narratica/client-workspace/client'
+import { DirectoryManager } from './directory-manager.js'
 
 interface StoryLibraryInjected {
+  directories: NarraticaStoriesClient
   hooks: { stories: Pick<NarraticaStoriesClient, 'getSnapshot' | 'subscribe'> }
   initializeProject: (title: string, projectId: string, repositoryPath: string) => Promise<InitializeNovelProjectResult>
   importText: (projectId: ProjectId, file: File) => Promise<ImportNovelTextResult>
@@ -19,7 +21,7 @@ interface StoryLibraryInjected {
 }
 
 type StoryLibraryProps = PropsRuntime<'narratica.story-library'> & InjectFace<StoryLibraryInjected>
-type LibraryModal = 'new' | 'import' | 'quick' | undefined
+type LibraryModal = 'new' | 'import' | 'quick' | 'directories' | undefined
 type LibrarySort = 'title' | 'project-id'
 type LibraryFilter = 'all' | 'novel'
 type ProjectCardState =
@@ -117,6 +119,7 @@ function StoryLibrary(props: StoryLibraryProps) {
           <span className="library-brand-mark" aria-hidden="true"><NarraticaMark size={38} /></span>
           <div className="library-brand-copy"><NarraticaWordmark className="library-brand" /><div className="library-slogan">心里的故事，陪你做成作品。</div></div>
           <div className="library-actions">
+            <button className="btn" type="button" onClick={() => { setError(undefined); setModal('directories') }}>添加目录</button>
             <button className="btn" type="button" onClick={() => { setError(undefined); setModal('import') }}>导入小说</button>
             <button className="btn primary" type="button" onClick={() => { setError(undefined); setModal('new') }}>添加故事</button>
           </div>
@@ -169,7 +172,8 @@ function StoryLibrary(props: StoryLibraryProps) {
         </div>}
       </div>
 
-      {modal !== undefined && <>
+      {modal === 'directories' && <DirectoryManager client={props.directories} domainLabels={DOMAIN_LABELS} close={closeModal} />}
+      {modal !== undefined && modal !== 'directories' && <>
         <button className="overlay show overlay-button" type="button" aria-label="关闭" onClick={closeModal} />
         <div className="modal open generic-modal" role="dialog" aria-modal="true" aria-label={modal === 'new' ? '添加故事' : modal === 'import' ? '导入已有小说' : '快速开始新故事'}>
           <div className="modal-head"><b>{modal === 'new' ? '添加故事' : modal === 'import' ? '导入已有小说' : '快速开始新故事'}</b><span className="badge good">写入真实工作空间</span><div className="grow" /><button className="icon-btn" type="button" aria-label="关闭" disabled={busy} onClick={closeModal}>×</button></div>
@@ -178,8 +182,7 @@ function StoryLibrary(props: StoryLibraryProps) {
             {modal === 'new' && <div className="card-grid top-gap">
               <button className="small-card modal-choice" type="button" disabled={busy} onClick={() => { void createBlank() }}><h4>空白创建</h4><p>建立标准故事工作空间和小说创作目录，不自动生成故事内容。</p></button>
               <button className="small-card modal-choice" type="button" disabled={busy} onClick={() => { setModal('quick') }}><h4>新故事 · 和导演一起开始</h4><p>先写下一句话想法；创建后由真实小说导演继续整理，候选内容仍需作者确认。</p></button>
-              <button className="small-card modal-choice" type="button" disabled title="尚未接入真实目录选择与项目结构校验"><h4>打开已有 Narratica 作品</h4><p>真实目录选择与安全打开能力尚未接入，当前明确禁用。</p></button>
-              <button className="small-card modal-choice" type="button" disabled title="尚未接入真实迁移预览与确认"><h4>接入旧作品目录</h4><p>迁移前必须读取真实目录并给出预览，当前明确禁用。</p></button>
+              <button className="small-card modal-choice" type="button" disabled={busy} onClick={() => { setModal('directories') }}><h4>添加作品总目录或已有作品</h4><p>扫描总目录或单部作品目录，自动发现标准作品；旧格式先预览再确认。</p></button>
               <button className="small-card modal-choice" type="button" disabled={busy} onClick={() => { setModal('import') }}><h4>导入已有小说</h4><p>保留原文来源，并把可靠识别的章节作为导入正文保存。</p></button>
             </div>}
             {modal === 'quick' && <>
@@ -210,6 +213,7 @@ export function apply(ctx: Context): void {
     name: 'narratica.story-library',
     inject: (): StoryLibraryInjected => ({
       hooks: { stories },
+      directories: stories,
       initializeProject: (title, nextProjectId, nextRepositoryPath) => stories.initializeNovelProject({ title, projectId: nextProjectId, repositoryPath: nextRepositoryPath }),
       importText: async (nextProjectId, file) => stories.importNovelText({ projectId: nextProjectId, sourceName: file.name, content: await file.text(), importedAt: new Date().toISOString() }),
       getNovelWorkspace: nextProjectId => stories.getNovelWorkspace(nextProjectId),

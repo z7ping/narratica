@@ -63,6 +63,11 @@ export class FilesystemStoryRepository implements StoryRepository {
 
   listRoots(): readonly string[] { return Object.freeze([...this.roots]) }
 
+  replaceRoots(roots: readonly string[]): void {
+    this.roots.splice(0)
+    for (const root of roots) this.addRoot(root)
+  }
+
   async list(): Promise<readonly StoryRepositoryRecord[]> {
     const records = await Promise.all(this.roots.map(readRecord))
     const seen = new Set<ProjectId>()

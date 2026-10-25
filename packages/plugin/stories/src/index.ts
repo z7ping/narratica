@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
-import type { Context } from '@deepseek-ai/cordis'
+import { Service, type Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type {
   AddNovelRelationInput,
@@ -142,6 +142,8 @@ import { FilesystemNovelSupportProjection } from './novel-support-projection.js'
 import { FilesystemNovelWorkspaceProjection } from './novel-workspace-projection.js'
 import { FilesystemRepositoryWorkspaceProjection } from './repository-workspace-projection.js'
 import { SceneOrderedStoryMutationStorage } from './scene-ordered-mutation-storage.js'
+import { LibraryDirectories, scanLibraryDirectory } from './library-directories.js'
+import type { AdoptLegacyLibraryProjectInput, LibraryDirectoryInput, LibraryDirectoryScan, LibraryDirectoryState, LibraryProjectCandidate } from '@narratica/contracts'
 
 export interface NarraticaStoriesConfig { readonly repositories?: readonly string[] }
 
@@ -167,6 +169,7 @@ function hasRelationRemoval(preview: NovelRelationRemovalPreview): boolean {
 
 export class NarraticaStoriesService extends TypertRemoteService {
   private readonly catalog: StoryCatalog
+  private readonly library: LibraryDirectories
   private readonly mutations: StoryMutationGateway
   private readonly scenePlans: NovelScenePlanMutationGateway
   private readonly screenplaySources: ScreenplaySourceSelectionGateway
@@ -195,6 +198,7 @@ export class NarraticaStoriesService extends TypertRemoteService {
   constructor(ctx: Context, config: NarraticaStoriesConfig = {}) {
     super(ctx, 'narraticaStories')
     const repository = new FilesystemStoryRepository(resolveRepositories(config))
+    this.library = new LibraryDirectories(repository, resolveRepositories(config))
     this.catalog = new StoryCatalog(repository)
     this.projectLifecycle = new FilesystemNovelProjectLifecycle(repository)
     this.authorAssets = new FilesystemNovelAuthorAssets(repository)
@@ -222,9 +226,21 @@ export class NarraticaStoriesService extends TypertRemoteService {
     this.repositoryWorkspace = new FilesystemRepositoryWorkspaceProjection(repository)
   }
 
-  @Remote('listProjects') listProjects(): Promise<readonly ProjectSummary[]> { return this.catalog.listProjects() }
+  async [Service.init](): Promise<void> { await this.library.refresh() }
+
+  @Remote('listProjects') async listProjects(): Promise<readonly ProjectSummary[]> { await this.library.refresh(); return this.catalog.listProjects() }
+  @Remote('getLibraryDirectories') getLibraryDirectories(): LibraryDirectoryState { return this.library.getState() }
+  @Remote('scanLibraryDirectory') scanLibraryDirectory(input: LibraryDirectoryInput): Promise<LibraryDirectoryScan> { return scanLibraryDirectory(input.rootPath) }
+  @Remote('addLibraryDirectory') addLibraryDirectory(input: LibraryDirectoryInput): Promise<LibraryDirectoryScan> { return this.library.add(input.rootPath) }
+  @Remote('removeLibraryDirectory') removeLibraryDirectory(input: LibraryDirectoryInput): Promise<LibraryDirectoryState> { return this.library.remove(input.rootPath) }
+  @Remote('adoptLegacyLibraryProject') adoptLegacyLibraryProject(input: AdoptLegacyLibraryProjectInput): Promise<LibraryProjectCandidate> { return this.library.adopt(input) }
   @Remote('getProjection') getProjection(projectId: ProjectId): Promise<StoryProjection> { return this.catalog.getProjection(projectId) }
-  @Remote('initializeNovelProject') initializeNovelProject(input: InitializeNovelProjectInput): Promise<InitializeNovelProjectResult> { return this.projectLifecycle.initialize(input) }
+  @Remote('initializeNovelProject') async initializeNovelProject(input: InitializeNovelProjectInput): Promise<InitializeNovelProjectResult> {
+    await this.library.refresh()
+    const result = await this.projectLifecycle.initialize(input)
+    await this.library.add(result.project.repositoryPath)
+    return result
+  }
   @Remote('importNovelText') importNovelText(input: ImportNovelTextInput): Promise<ImportNovelTextResult> { return this.projectLifecycle.importText(input) }
   @Remote('getNovelReadingPreview') getNovelReadingPreview(projectId: ProjectId): Promise<NovelReadingPreviewState> { return this.readingPreview.get(projectId) }
   @Remote('setNovelReadingPreview') setNovelReadingPreview(input: SetNovelReadingPreviewInput): Promise<NovelReadingPreviewState> { return this.readingPreview.set(input) }

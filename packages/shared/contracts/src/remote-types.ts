@@ -1,4 +1,12 @@
 export type {
+  LibraryDirectoryInput,
+  LibraryProjectCandidate,
+  LibraryDirectoryScan,
+  LibraryDirectoryState,
+  AdoptLegacyLibraryProjectInput,
+} from './library.js'
+
+export type {
   ProjectId,
   ProjectSummary,
   StoryProjection,

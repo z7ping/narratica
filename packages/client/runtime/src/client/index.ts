@@ -1,5 +1,6 @@
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { AdoptLegacyLibraryProjectInput, LibraryDirectoryScan, LibraryDirectoryState, LibraryProjectCandidate } from '@narratica/contracts'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ConnectionHandle, SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ISessions, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -327,6 +328,23 @@ export class NarraticaStoriesClient {
   }
 
   async getProjection(projectId: ProjectId): Promise<StoryProjection> { return unwrapRemote(await this.ctx.remote.narraticaStories.getProjection(projectId)) }
+  async getLibraryDirectories(): Promise<LibraryDirectoryState> { return unwrapRemote(await this.ctx.remote.narraticaStories.getLibraryDirectories()) }
+  async scanLibraryDirectory(rootPath: string): Promise<LibraryDirectoryScan> { return unwrapRemote(await this.ctx.remote.narraticaStories.scanLibraryDirectory({ rootPath })) }
+  async addLibraryDirectory(rootPath: string): Promise<LibraryDirectoryScan> {
+    const result = unwrapRemote(await this.ctx.remote.narraticaStories.addLibraryDirectory({ rootPath }))
+    await this.refresh()
+    return result
+  }
+  async removeLibraryDirectory(rootPath: string): Promise<LibraryDirectoryState> {
+    const result = unwrapRemote(await this.ctx.remote.narraticaStories.removeLibraryDirectory({ rootPath }))
+    await this.refresh()
+    return result
+  }
+  async adoptLegacyLibraryProject(input: AdoptLegacyLibraryProjectInput): Promise<LibraryProjectCandidate> {
+    const result = unwrapRemote(await this.ctx.remote.narraticaStories.adoptLegacyLibraryProject(input))
+    await this.refresh()
+    return result
+  }
   async initializeNovelProject(input: InitializeNovelProjectInput): Promise<InitializeNovelProjectResult> {
     const result = unwrapRemote(await this.ctx.remote.narraticaStories.initializeNovelProject(input))
     await this.refresh()
