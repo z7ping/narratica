@@ -6,6 +6,7 @@ import type { ProjectId } from '@narratica/contracts'
 
 import { NarraticaDirectorClient as LegacyNarraticaDirectorClient } from './index.js'
 import { createDirectorSessionSource } from './director-session-source.js'
+import { probeDirectorHistory } from './director-history.js'
 import type {
   DirectorSessionSource,
   DirectorSubmitResult,
@@ -284,7 +285,7 @@ export class NarraticaDirectorClient extends LegacyNarraticaDirectorClient {
       const summary = snapshot.byId[sessionId]
       if (summary === undefined || summary.cwd === undefined || normalizedPath(summary.cwd) !== normalizedPath(repositoryPath)) return []
       if (summary.parentId !== undefined || summary.origin === 'subagent') return []
-      if (summary.agentPreset !== DIRECTOR_AGENT_PRESET || archived.has(sessionId)) return []
+      if (archived.has(sessionId)) return []
       return [{ sessionId, updatedAt: summary.updatedAt }]
     }).sort((left, right) => right.updatedAt - left.updatedAt)
     if (candidates.length === 0) return undefined
@@ -300,24 +301,8 @@ export class NarraticaDirectorClient extends LegacyNarraticaDirectorClient {
     return undefined
   }
 
-  private async legacySessionBelongsToNovelProject(connection: ConnectionHandle, sessionId: SessionId, projectId: ProjectId): Promise<boolean> {
-    let beforeSeq: number | undefined
-    for (let page = 0; page < LEGACY_DIRECTOR_HISTORY_MAX_PAGES; page++) {
-      const history = await connection.api.sessions.history({
-        sessionId,
-        ...(beforeSeq === undefined ? {} : { beforeSeq }),
-        maxMessages: LEGACY_DIRECTOR_HISTORY_PAGE_SIZE,
-      })
-      if (!history.result.ok) throw new Error(`${history.result.error.code}: ${history.result.error.message}`)
-      const { events, hasMore } = history.result.value
-      if (events.some(entry => historyEntryBelongsToLegacyNovelDirector(entry, projectId))) return true
-      if (!hasMore) return false
-      if (events.length === 0) throw new Error('DSH 返回 hasMore=true 但历史页为空，无法继续确定性检查')
-      const earliestSeq = events.reduce((minimum, entry) => Math.min(minimum, entry.event.seq), Number.POSITIVE_INFINITY)
-      if (!Number.isSafeInteger(earliestSeq) || earliestSeq <= 0 || (beforeSeq !== undefined && earliestSeq >= beforeSeq)) throw new Error(`DSH 历史分页游标异常：${String(earliestSeq)}`)
-      beforeSeq = earliestSeq
-    }
-    throw new Error(`旧小说导演会话历史超过安全检查上限（${LEGACY_DIRECTOR_HISTORY_MAX_PAGES * LEGACY_DIRECTOR_HISTORY_PAGE_SIZE} 条消息）`)
+  private async legacySessionBelongsToNovelProject(_connection: ConnectionHandle, sessionId: SessionId, projectId: ProjectId): Promise<boolean> {
+    return probeDirectorHistory(this.directorSessions(), sessionId, entry => historyEntryBelongsToLegacyNovelDirector(entry, projectId))
   }
 
   private async roleArchivedSessionIds(_connection: ConnectionHandle): Promise<Set<SessionId>> {

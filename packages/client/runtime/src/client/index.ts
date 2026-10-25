@@ -3,6 +3,8 @@ import type { ConnectionHandle, SessionId } from '@deepseek-ai/dsh-api-remotes/c
 import type { ISessions, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { ConversationNode, PartialAssistant } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { createDirectorSessionSource } from './director-session-source.js'
+import { probeDirectorHistory } from './director-history.js'
+import type { IWorkspaces } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
   AddNovelRelationInput,
@@ -497,7 +499,6 @@ export class NarraticaDirectorClient {
     const remembered = this.projectSessions.get(projectId)
     if (remembered !== undefined && sessions.list.getSnapshot().byId[remembered] !== undefined) {
       if (!archived.has(remembered)) {
-        if (sessions.binding(remembered)?.session === undefined) throw new Error(`导演会话已存在，但客户端无法解析 Session Binding：${String(remembered)}`)
         return remembered
       }
       this.projectSessions.delete(projectId)
@@ -505,9 +506,7 @@ export class NarraticaDirectorClient {
     }
 
     const projection = await this.stories.getProjection(projectId)
-    const workspaceResponse = await connection.api.workspace.create({ path: projection.project.repositoryPath })
-    if (!workspaceResponse.result.ok) throw new Error(`Narratica 作品工作区注册失败：${workspaceResponse.result.error.code}: ${workspaceResponse.result.error.message}`)
-    const workspaceId = workspaceResponse.result.value.workspace.workspaceId
+    const workspaceId = (await this.workspaces().create({ path: projection.project.repositoryPath })).workspaceId
     archived = await this.archivedSessionIds(connection)
     const baseSessionId = await directorSessionId(projectId, String(workspaceId))
     const snapshot = sessions.list.getSnapshot()
@@ -531,13 +530,10 @@ export class NarraticaDirectorClient {
       requestedSessionId = legacySessionId ?? baseSessionId
     }
 
-    const response = await connection.api.sessions.create({ workspaceId, sessionId: requestedSessionId, agentPreset: NOVEL_DIRECTOR_AGENT_PRESET })
-    if (!response.result.ok) throw new Error(`Narratica 导演会话创建失败：${response.result.error.code}: ${response.result.error.message}`)
-    const sessionId = response.result.value.sessionId
+    const sessionId = await sessions.create({ workspaceId, sessionId: requestedSessionId, agentPreset: NOVEL_DIRECTOR_AGENT_PRESET })
     this.sessionProjects.set(sessionId, projectId)
     this.projectSessions.set(projectId, sessionId)
     await waitForSession(sessions, sessionId)
-    if (sessions.binding(sessionId)?.session === undefined) throw new Error(`导演会话已创建，但客户端无法解析 Session Binding：${String(sessionId)}`)
     return sessionId
   }
 
@@ -586,42 +582,17 @@ export class NarraticaDirectorClient {
     if (!result.ok) throw new Error(`停止失败：${result.error.code}: ${result.error.message}`)
   }
 
-  private async archivedSessionIds(connection: ConnectionHandle): Promise<Set<SessionId>> {
-    const listWorkspaces = connection.api.workspace.list as typeof connection.api.workspace.list | undefined
-    if (listWorkspaces === undefined) return new Set<SessionId>()
-    const workspaceList = await listWorkspaces({})
-    if (!workspaceList.result.ok) {
-      throw new Error(`Narratica 无法确认 DSH 会话归档状态：${workspaceList.result.error.code}: ${workspaceList.result.error.message}`)
-    }
-    return new Set<SessionId>(workspaceList.result.value.archivedSessionIds)
+  private async archivedSessionIds(_connection: ConnectionHandle): Promise<Set<SessionId>> {
+    const controller = this.workspaces()
+    return new Set<SessionId>(controller.list.getSnapshot().archivedSessionIds)
   }
 
   private async legacySessionBelongsToProject(
-    connection: ConnectionHandle,
+    _connection: ConnectionHandle,
     sessionId: SessionId,
     projectId: ProjectId,
   ): Promise<boolean> {
-    let beforeSeq: number | undefined
-    for (let page = 0; page < LEGACY_DIRECTOR_HISTORY_MAX_PAGES; page++) {
-      const history = await connection.api.sessions.history({
-        sessionId,
-        ...(beforeSeq === undefined ? {} : { beforeSeq }),
-        maxMessages: LEGACY_DIRECTOR_HISTORY_PAGE_SIZE,
-      })
-      if (!history.result.ok) {
-        throw new Error(`${history.result.error.code}: ${history.result.error.message}`)
-      }
-      const { events, hasMore } = history.result.value
-      if (events.some(entry => historyEntryBelongsToProject(entry, projectId))) return true
-      if (!hasMore) return false
-      if (events.length === 0) throw new Error('DSH 返回 hasMore=true 但历史页为空，无法继续确定性检查')
-      const earliestSeq = events.reduce((minimum, entry) => Math.min(minimum, entry.event.seq), Number.POSITIVE_INFINITY)
-      if (!Number.isSafeInteger(earliestSeq) || earliestSeq <= 0 || (beforeSeq !== undefined && earliestSeq >= beforeSeq)) {
-        throw new Error(`DSH 历史分页游标异常：${String(earliestSeq)}`)
-      }
-      beforeSeq = earliestSeq
-    }
-    throw new Error(`旧导演会话历史超过安全检查上限（${LEGACY_DIRECTOR_HISTORY_MAX_PAGES * LEGACY_DIRECTOR_HISTORY_PAGE_SIZE} 条消息）`)
+    return probeDirectorHistory(this.sessions(), sessionId, entry => historyEntryBelongsToProject(entry, projectId))
   }
 
   private async findLegacyDirectorSession(
@@ -636,7 +607,7 @@ export class NarraticaDirectorClient {
       const summary = snapshot.byId[sessionId]
       if (summary === undefined || summary.cwd === undefined || normalizedPath(summary.cwd) !== normalizedPath(repositoryPath)) return []
       if (summary.parentId !== undefined || summary.origin === 'subagent') return []
-      if (summary.agentPreset !== NOVEL_DIRECTOR_AGENT_PRESET || archived.has(sessionId)) return []
+      if (archived.has(sessionId)) return []
       return [{ sessionId, updatedAt: summary.updatedAt }]
     }).sort((left, right) => right.updatedAt - left.updatedAt)
     if (candidates.length === 0) return undefined
@@ -680,6 +651,12 @@ export class NarraticaDirectorClient {
     if (connection === undefined) throw new Error('Narratica 导演会话无法创建：DSH Connection 尚未就绪')
     return connection
   }
+  private workspaces(): IWorkspaces {
+    const workspaces = this.ctx.get('workspaces') as IWorkspaces | undefined
+    if (workspaces === undefined) throw new Error('DSH Workspace Controller 尚未就绪')
+    return workspaces
+  }
+
   private sessions(): ISessions {
     const sessions = this.ctx.get('sessions') as ISessions | undefined
     if (sessions === undefined) throw new Error('Narratica 导演会话无法创建：DSH Session Runtime 尚未就绪')
