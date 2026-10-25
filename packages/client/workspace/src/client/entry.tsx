@@ -8,7 +8,10 @@ export type { NarraticaDirectorModelRole } from './model-settings.js'
 
 export const inject = [
   'slots',
-  'connection',
+  'remote',
+  'remote.session',
+  'sessions',
+  'configForms',
   'narraticaWorkspaceClient',
   'narraticaStoriesClient',
   'narraticaProductionClient',

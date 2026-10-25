@@ -5,12 +5,12 @@
     "outDir": "lib/types",
     "emitDeclarationOnly": true,
     "jsx": "react-jsx",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "ESNext.Disposable"],
     "types": ["react"]
   },
   "references": [
     { "path": "../runtime" },
     { "path": "../workspace" }
   ],
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "../../../types/client-assets.d.ts"]
 }

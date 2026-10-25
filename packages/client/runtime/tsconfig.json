@@ -4,8 +4,8 @@
     "rootDir": "src",
     "outDir": "lib/types",
     "emitDeclarationOnly": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "ESNext.Disposable"],
     "types": []
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "../../../types/client-assets.d.ts"]
 }

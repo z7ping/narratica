@@ -1,10 +1,10 @@
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Volatile } from '@deepseek-ai/cordis'
 import type { ModelSelection } from '@deepseek-ai/dsh-agent'
-import { settingsNamespace, type SettingsScope } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 import Schema from '@deepseek-ai/schemastery'
 
 export const name = 'narratica-director-model-policy'
-export const NARRATICA_DIRECTOR_MODEL_SETTINGS_NAMESPACE = 'narratica-director-models'
+export const NARRATICA_DIRECTOR_MODEL_SETTINGS_NAMESPACE = 'narratica-director-model-policy'
 
 export type NarraticaDirectorModelRole = 'novel' | 'screenplay' | 'production'
 export type NarraticaDirectorModelMode = 'auto' | 'fixed'
@@ -36,8 +36,18 @@ export const NarraticaDirectorModelSettingsSchema: Schema<NarraticaDirectorModel
   production: RolePolicySchema.default(AutoPolicy),
 })
 
-const SETTINGS_NAMESPACE = settingsNamespace(NARRATICA_DIRECTOR_MODEL_SETTINGS_NAMESPACE)
-const ROLE_MARKER = /^当前 Director Role：\s*(novel|screenplay|production)\s*$/m
+// 新版 Settings 从 Loader 的 volatile Config 自动投影表单。
+export const Config = Schema.object({
+  novel: RolePolicySchema.default(AutoPolicy).volatile(),
+  screenplay: RolePolicySchema.default(AutoPolicy).volatile(),
+  production: RolePolicySchema.default(AutoPolicy).volatile(),
+})
+export interface Config {
+  novel: Volatile<NarraticaDirectorModelRolePolicy>
+  screenplay: Volatile<NarraticaDirectorModelRolePolicy>
+  production: Volatile<NarraticaDirectorModelRolePolicy>
+}
+const ROLE_MARKER = /^\s*当前 Director Role：\s*(novel|screenplay|production)\s*$/m
 
 interface DirectUserMessage {
   readonly source?: { readonly kind?: unknown }
@@ -91,23 +101,16 @@ interface AgentPolicyState {
  * 作为最外层包装：先让宿主完成原有选择，再把 Narratica fixed policy 应用到最终
  * prompt variables / request config，因此只改变当前 Director Agent 的本轮请求。
  */
-export function apply(ctx: Context): void {
-  let settingsScope: SettingsScope<NarraticaDirectorModelSettings> | undefined
+export function apply(ctx: Context, config: Config): void {
   const agentPolicies = new Map<object, AgentPolicyState>()
-
-  ctx.inject(['settings'], settingsCtx => {
-    const scope = settingsCtx.settings.register(SETTINGS_NAMESPACE, NarraticaDirectorModelSettingsSchema, {
-      applies: 'live',
-      validate: validatePolicy,
-    })
-    settingsScope = scope
-    settingsCtx.effect(() => () => {
-      if (settingsScope === scope) settingsScope = undefined
-    }, 'narratica.directorModelSettingsScope')
+  ctx.inject(['settings'], child => {
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
   })
-
-  const policyFor = (role: NarraticaDirectorModelRole): NarraticaDirectorModelRolePolicy =>
-    settingsScope?.get()[role] ?? AutoPolicy
+  const policyFor = (role: NarraticaDirectorModelRole): NarraticaDirectorModelRolePolicy => {
+    const settings = { novel: config.novel.get(), screenplay: config.screenplay.get(), production: config.production.get() }
+    validatePolicy(settings)
+    return settings[role]
+  }
 
   const applyRole = (agent: { readonly ctx: Context }, role: NarraticaDirectorModelRole): void => {
     const current = agentPolicies.get(agent)

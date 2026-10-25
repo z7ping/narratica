@@ -37,7 +37,7 @@ interface DirectorInjected {
 }
 
 type DirectorProps = PropsRuntime<'narratica.inspector'> & InjectFace<DirectorInjected>
-interface DirectorMessage { readonly role: '你' | '导演助手'; readonly kind: 'user' | 'assistant'; readonly text: string }
+interface DirectorMessage { readonly role: '你' | '导演助手'; readonly kind: 'user' | 'assistant' | 'error'; readonly text: string }
 interface SettingPreviewCheckpoint {
   readonly sessionRevision: StoryContentRevision
   readonly fingerprint: string
@@ -86,6 +86,12 @@ function visibleDirectorUserText(text: string): string {
 }
 
 function textFromNode(node: ConversationNode): DirectorMessage | undefined {
+  if (node.kind === 'turn-error') {
+    const detail = node.message || node.code || '未知错误'
+    const text = node.code === 'QUOTA' ? `模型服务余额或额度不足：${detail}` : `导演请求失败：${detail}`
+    return { role: '导演助手', kind: 'error', text }
+  }
+  if (node.kind === 'turn-max-tokens') return { role: '导演助手', kind: 'error', text: '本轮已达到模型输出上限，请缩小任务范围后继续。' }
   if (node.kind === 'user' || node.kind === 'steering') {
     const raw = node.content.filter(block => block.type === 'text').map(block => block.text).join('\n').trim()
     const text = visibleDirectorUserText(raw)
@@ -608,7 +614,7 @@ function DirectorPanel(props: DirectorProps) {
       <div className="drawer-body director-body">
         <div className="assistant-msg">{activityMessage}</div>
         {snapshot === undefined && <div className="assistant-msg">正在连接当前项目的{directorLabel}会话…</div>}
-        {messages.map((message, index) => <div className={`assistant-msg${message.kind === 'user' ? ' user' : ''}`} key={`${message.role}-${index}`}><b>{message.role}</b><div>{message.text}</div></div>)}
+        {messages.map((message, index) => <div className={message.kind === 'error' ? 'error top-gap' : `assistant-msg${message.kind === 'user' ? ' user' : ''}`} role={message.kind === 'error' ? 'alert' : undefined} key={`${message.role}-${index}`}><b>{message.role}</b><div>{message.text}</div></div>)}
         {partial !== undefined && partial.length > 0 && <div className="assistant-msg"><b>导演助手</b><div>{partial}</div></div>}
         <div className="small-card"><h4>需要作者确认的操作</h4><p>{confirmationMessage}</p></div>
         {notice !== undefined && <div className="notice top-gap" role="status" style={{ whiteSpace: 'pre-wrap' }}>{notice}</div>}

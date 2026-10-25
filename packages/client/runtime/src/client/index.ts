@@ -1,3 +1,5 @@
+import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ConnectionHandle, SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ISessions, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -230,7 +232,7 @@ function historyEntryBelongsToProject(entry: unknown, projectId: ProjectId): boo
     const textBlock = block as { type?: unknown; text?: unknown }
     if (textBlock.type !== 'text' || typeof textBlock.text !== 'string') return false
     const lines = textBlock.text.replace(/\r\n/g, '\n').split('\n')
-    return DIRECTOR_COMMANDS.has(lines[0] ?? '') && lines[1] === projectMarker
+    return DIRECTOR_COMMANDS.has(lines[0] ?? '') && lines[1]?.trim() === projectMarker
   })
 }
 async function directorSessionId(projectId: ProjectId, workspaceId: string): Promise<SessionId> {
@@ -530,7 +532,10 @@ export class NarraticaDirectorClient {
       requestedSessionId = legacySessionId ?? baseSessionId
     }
 
-    const sessionId = await sessions.create({ workspaceId, sessionId: requestedSessionId, agentPreset: NOVEL_DIRECTOR_AGENT_PRESET })
+    // rc.3 create 仅复用空会话；有历史的导演会话直接 retain，避免创建新会话。
+    const sessionId = sessions.list.getSnapshot().byId[requestedSessionId] !== undefined
+      ? requestedSessionId
+      : await sessions.create({ workspaceId, sessionId: requestedSessionId, agentPreset: NOVEL_DIRECTOR_AGENT_PRESET })
     this.sessionProjects.set(sessionId, projectId)
     this.projectSessions.set(projectId, sessionId)
     await waitForSession(sessions, sessionId)

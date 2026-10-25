@@ -136,7 +136,7 @@ function historyEntryBelongsToLegacyNovelDirector(entry: unknown, projectId: Pro
     const textBlock = block as { type?: unknown; text?: unknown }
     if (textBlock.type !== 'text' || typeof textBlock.text !== 'string') return false
     const lines = textBlock.text.replace(/\r\n/g, '\n').split('\n')
-    return lines[0] === `/${NOVEL_DIRECTOR_SKILL}` && lines[1] === projectMarker
+    return lines[0] === `/${NOVEL_DIRECTOR_SKILL}` && lines[1]?.trim() === projectMarker
   })
 }
 
@@ -251,7 +251,10 @@ export class NarraticaDirectorClient extends LegacyNarraticaDirectorClient {
       requestedSessionId = legacySessionId ?? baseSessionId
     } else requestedSessionId = baseSessionId
 
-    const sessionId = await sessions.create({ workspaceId, sessionId: requestedSessionId, agentPreset: DIRECTOR_AGENT_PRESET })
+    // rc.3 create 仅复用空会话；有历史的导演会话直接 retain，避免创建新会话。
+    const sessionId = sessions.list.getSnapshot().byId[requestedSessionId] !== undefined
+      ? requestedSessionId
+      : await sessions.create({ workspaceId, sessionId: requestedSessionId, agentPreset: DIRECTOR_AGENT_PRESET })
     this.rememberSession(projectId, role, sessionId)
     await waitForSession(sessions, sessionId)
     return sessionId

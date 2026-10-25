@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ModelSelectionProjection } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ProjectId } from '@narratica/contracts'
 import type {} from '@narratica/client-layout/client'
@@ -30,31 +32,6 @@ interface DshModelsResponse {
     | { readonly ok: true; readonly value: DshModelSnapshot }
     | { readonly ok: false; readonly error: { readonly code: string; readonly message: string } }
 }
-interface SettingsNamespaceView {
-  readonly ns: string
-  readonly value: unknown
-  readonly revision: number
-}
-interface SettingsDescribeResponse {
-  readonly result:
-    | { readonly ok: true; readonly value: { readonly writable: boolean; readonly namespaces: readonly SettingsNamespaceView[] } }
-    | { readonly ok: false; readonly error: { readonly code: string; readonly message: string } }
-}
-interface SettingsUpdateResponse {
-  readonly result:
-    | { readonly ok: true; readonly value: SettingsNamespaceView }
-    | { readonly ok: false; readonly error: { readonly code: string; readonly message: string } }
-}
-interface DshConnectionFace {
-  readonly api: {
-    readonly sessions: { models(input: { readonly sessionId: string }): Promise<DshModelsResponse> }
-    readonly settings: {
-      describe(input: Record<string, never>): Promise<SettingsDescribeResponse>
-      update(input: { readonly ns: string; readonly patch: object; readonly expectedRevision?: number }): Promise<SettingsUpdateResponse>
-    }
-  }
-}
-
 interface DirectorModelPolicy {
   readonly mode: ModelPolicyMode
   readonly provider?: string
@@ -90,7 +67,7 @@ interface ModelSettingsInjected {
 
 type ModelSettingsProps = PropsRuntime<'narratica.overlay'> & InjectFace<ModelSettingsInjected>
 
-export const NARRATICA_DIRECTOR_MODEL_SETTINGS_NAMESPACE = 'narratica-director-models'
+export const NARRATICA_DIRECTOR_MODEL_SETTINGS_NAMESPACE = 'narratica-director-model-policy'
 const ROLE_LABELS: Readonly<Record<NarraticaDirectorModelRole, { mode: string; director: string }>> = {
   novel: { mode: '小说创作', director: '小说导演' },
   screenplay: { mode: '剧本与分镜', director: '剧本导演' },
@@ -284,7 +261,7 @@ function modelView(response: DshModelsResponse): ModelView {
 export function applyModelSettings(ctx: Context): void {
   const workspace = ctx.narraticaWorkspaceClient
   const director = ctx.narraticaDirectorClient as NarraticaDirectorClient
-  const connection = (ctx as unknown as { get(name: 'connection'): DshConnectionFace }).get('connection')
+  const form = ctx.configForms.get<DirectorModelPolicies>(NARRATICA_DIRECTOR_MODEL_SETTINGS_NAMESPACE)
   let inspectTail: Promise<void> = Promise.resolve()
 
   const inspectNow = async (projectId: ProjectId, role: NarraticaDirectorModelRole): Promise<ModelView> => {
@@ -293,7 +270,12 @@ export function applyModelSettings(ctx: Context): void {
     const targetRoute = ROLE_ROUTES[role]
     try {
       const sessionId = await director.prepareProject(projectId, targetRoute)
-      return modelView(await connection.api.sessions.models({ sessionId: String(sessionId) }))
+      const response = await ctx.remote.session.modelCatalog()
+      if (!response.ok) throw new Error(response.error.message)
+      const catalog = response.value
+      const projection = ctx.sessions.binding(sessionId)?.session.projections.faceOf('modelSelection').getSnapshot() as ModelSelectionProjection | undefined
+      const current = projection?.next ?? catalog.default
+      return modelView({ result: { ok: true, value: { current, groups: catalog.groups, failures: catalog.failures, routable: catalog.routableProviders.includes(current.provider) && catalog.groups.some(group => group.id === current.provider && group.models.some(model => model.id === current.model)) } } })
     } finally {
       if (previousSession !== undefined && previousRoute !== targetRoute) await director.prepareProject(projectId, previousRoute)
     }
@@ -307,17 +289,16 @@ export function applyModelSettings(ctx: Context): void {
   }
 
   const loadPolicies = async (): Promise<PolicySnapshot> => {
-    const response = await connection.api.settings.describe({})
-    if (!response.result.ok) throw new Error(`读取 Narratica 模型设置失败：${response.result.error.code}: ${response.result.error.message}`)
-    const namespace = response.result.value.namespaces.find(row => row.ns === NARRATICA_DIRECTOR_MODEL_SETTINGS_NAMESPACE)
-    if (namespace === undefined) throw new Error('Narratica Director 模型设置尚未在 Host 注册')
-    return { writable: response.result.value.writable, revision: namespace.revision, policies: policiesFrom(namespace.value) }
+    await ctx.configForms.describe().ensure()
+    const snapshot = form.getSnapshot()
+    if (snapshot.status !== 'ready' || snapshot.revision === undefined) throw new Error('Narratica Director 模型设置尚未在 Host 注册')
+    return { writable: snapshot.writable, revision: snapshot.revision, policies: policiesFrom(snapshot.value) }
   }
 
   const savePolicy = async (role: NarraticaDirectorModelRole, policy: DirectorModelPolicy, expectedRevision: number): Promise<PolicySnapshot> => {
-    const response = await connection.api.settings.update({ ns: NARRATICA_DIRECTOR_MODEL_SETTINGS_NAMESPACE, patch: { [role]: policy }, expectedRevision })
-    if (!response.result.ok) throw new Error(`保存 Narratica 模型设置失败：${response.result.error.code}: ${response.result.error.message}`)
-    return { writable: true, revision: response.result.value.revision, policies: policiesFrom(response.result.value.value) }
+    if (form.getSnapshot().revision !== expectedRevision) throw new Error('模型设置已更新，请重新打开设置后重试')
+    if (!await form.set(role, policy)) throw new Error('模型设置保存被拒绝，请重新读取后重试')
+    return loadPolicies()
   }
 
   ctx.slots.inject('narratica.overlay', () => ctx.slots.register({

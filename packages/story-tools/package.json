@@ -19,7 +19,7 @@
     "lib"
   ],
   "dependencies": {
-    "@deepseek-ai/schemastery": "3.18.1",
+    "@deepseek-ai/schemastery": "3.18.5",
     "@narratica/contracts": "workspace:*",
     "@narratica/plugin-stories": "workspace:*"
   },

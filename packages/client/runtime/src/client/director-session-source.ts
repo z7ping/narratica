@@ -18,7 +18,10 @@ export function createDirectorSessionSource(
   if (session === undefined) return undefined
   const conversation = (ctx as Context & { uiConversation: UiConversation }).uiConversation
   if (conversation === undefined) return undefined
-  const chat = conversation.binding(sessionId).target('chat')
+  const binding = conversation.binding(sessionId)
+  // 初次读取前激活投影，避免首个订阅触发同步回放时漏掉历史快照。
+  binding.activate('chat')
+  const chat = binding.target('chat')
   return {
     getSnapshot: () => {
       const lifecycle = session.getSnapshot()

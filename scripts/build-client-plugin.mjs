@@ -38,6 +38,8 @@ const dshPurityGate = {
   name: 'narratica-dsh-client-purity',
   setup(buildApi) {
     buildApi.onResolve({ filter: /^@deepseek-ai\// }, args => {
+      // rc.3 生成的 Remote 元数据使用无导入、无注册副作用的纯辅助模块。
+      if (args.path === '@deepseek-ai/dsh-typert-protocol/remote-info') return undefined
       if (isPlatformExternal(args.path)) return { path: args.path, external: true }
       throw new Error(
         `Narratica client bundle cannot import DSH runtime value "${args.path}". `
@@ -93,8 +95,8 @@ await build({
 })
 
 const body = await readFile(bodyFile, 'utf8')
-const indented = body.split('\n').map(line => line ? `\t\t${line}` : line).join('\n')
-const wrapped = `window.__ModuleLoader__.load({\n\tid: ${JSON.stringify(moduleId)},\n\tfactory: (require) => {\n\t\tvar module = { exports: {} };\n\t\tvar exports = module.exports;\n${indented}\n\t\treturn module.exports;\n\t}\n});\n`
+// 保留源文本，缩进整段 JS 会改变模板字符串中的导演路由标记等内容。
+const wrapped = `window.__ModuleLoader__.load({\n\tid: ${JSON.stringify(moduleId)},\n\tfactory: (require) => {\n\t\tvar module = { exports: {} };\n\t\tvar exports = module.exports;\n${body}\n\t\treturn module.exports;\n\t}\n});\n`
 await writeFile(clientFile, wrapped)
 await rm(bodyFile, { force: true })
 

@@ -20,7 +20,7 @@
 
 
 > [!WARNING]
-> DSH 0.2.1-rc.3 升级正在 PR #16 中迁移验证。依赖、Session Controller、Client Slot 与 Typert 兼容层已经更新，但锁文件再生成、编译和正式 Profile 冒烟尚未通过；迁移分支不能视为稳定发行版本。
+> DSH 0.2.1-rc.3 的依赖锁文件、构建及 Windows 本机 Profile/Web 冒烟已验证；故事库、小说工作台、模型设置与导演会话可加载。完整测试套件、跨平台与媒体 Provider 尚未验收。模型请求仍需要可用的账号额度或 API Key。
 
 Narratica 面向故事创作者，让同一个故事项目从想法逐步推进到小说、剧本与分镜，再到图片、视频、音频生成、合成和交付。
 
@@ -134,7 +134,7 @@ dsh plugin --profile narratica remove @narratica/narratica
 | Node.js | 推荐 24；最低 `22.19.0` |
 | pnpm | `11.7.0` |
 | DSH | `0.2.1-rc.3` |
-| Cordis | `4.0.1` |
+| Cordis | `4.0.5` |
 | 操作系统 | Windows / macOS / Linux |
 
 不要自行把 DSH 或 pnpm 改成无约束的 `latest`。

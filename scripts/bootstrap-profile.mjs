@@ -54,8 +54,8 @@ function run(command, args, options = {}) {
   }
 }
 
-function addToProfile(spec) {
-  run(pnpm, ['exec', 'dsh', 'plugin', '--profile', DSH_PROFILE, 'add', spec])
+function addToProfile(...specs) {
+  run(pnpm, ['exec', 'dsh', 'plugin', '--profile', DSH_PROFILE, 'add', ...specs])
 }
 
 const dshHome = process.env.DSH_HOME || join(homedir(), '.dsh')
@@ -111,9 +111,12 @@ try {
   await writeFile(profileWorkspacePolicy, applyProfileBuildPolicy(''))
 }
 
-for (const [, packageDir] of localProfilePlainDependencies) addToProfile(packageDir)
-addToProfile(`${DSH_WEB_BUNDLE}@${DSH_VERSION}`)
-addToProfile(narraticaBundleDir)
+// 一次性更新整个 Profile，避免升级途中混用新宿主和旧 Web Bundle。
+addToProfile(
+  ...localProfilePlainDependencies.map(([, packageDir]) => packageDir),
+  `${DSH_WEB_BUNDLE}@${DSH_VERSION}`,
+  narraticaBundleDir,
+)
 
 const profilePackagePath = join(profileDir, 'package.json')
 const profilePackage = JSON.parse(await readFile(profilePackagePath, 'utf8'))

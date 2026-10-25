@@ -20,14 +20,16 @@
     "client": {
       "inject": [
         "@narratica/client-runtime",
-        "@narratica/client-layout"
+        "@narratica/client-layout",
+        "@deepseek-ai/dsh-client-ui-settings"
       ],
       "platform": "web"
     }
   },
   "dependencies": {
     "@narratica/contracts": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.3"
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-client-ui-settings": "0.2.1-rc.3"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "4.0.5",
