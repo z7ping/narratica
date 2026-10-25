@@ -68,6 +68,8 @@ export const NOVEL_WORKBENCH_STYLES = `
 }
 .mode-view[aria-label="小说创作"] .editor[readonly]{background:var(--n-surface);color:var(--n-text);cursor:text}
 .mode-view[aria-label="小说创作"] .editor:focus{outline:2px solid var(--n-brand-border);outline-offset:1px}
+.mode-view[aria-label="小说创作"] .editor-shell .narratica-markdown-field{width:min(100%,var(--n-reading-max));margin:0 auto}
+.mode-view[aria-label="小说创作"] .editor-shell .narratica-markdown-preview{min-height:clamp(380px,55vh,660px);padding:var(--n-space-4) var(--n-space-5);border:1px solid var(--n-border);border-radius:var(--n-radius-sm)}
 .mode-view[aria-label="小说创作"] .editor-shell>.meta.top-gap,
 .mode-view[aria-label="小说创作"] .editor-shell>.notice.top-gap,
 .mode-view[aria-label="小说创作"] .editor-shell>.error.top-gap{width:min(100%,var(--n-reading-max));margin-left:auto;margin-right:auto}

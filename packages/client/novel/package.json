@@ -27,6 +27,7 @@
     }
   },
   "dependencies": {
+    "@narratica/client-layout": "workspace:*",
     "@narratica/contracts": "workspace:*",
     "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.3"
   },

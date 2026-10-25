@@ -119,4 +119,16 @@ if (sharedUiEntry) {
   })
 }
 
+if (moduleId === '@narratica/client-layout') {
+  await build({
+    entryPoints: [join(packageRoot, 'src/client/markdown.tsx')],
+    bundle: false,
+    format: 'esm',
+    platform: 'browser',
+    target: ['es2020'],
+    jsx: 'automatic',
+    outfile: join(libDir, 'markdown.js'),
+  })
+}
+
 console.log(`Built DSH client plugin ${moduleId}`)

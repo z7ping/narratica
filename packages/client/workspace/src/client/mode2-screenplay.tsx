@@ -1,3 +1,4 @@
+import { MarkdownDraftField } from '@narratica/client-layout/markdown'
 import { useEffect, useState } from 'react'
 import type { ProjectId, ScreenplayEpisodeId, ScreenplayEpisodeState, ScreenplayWorkspaceState } from '@narratica/contracts'
 import type { NarraticaStoriesClient } from '@narratica/client-runtime/client'
@@ -90,7 +91,7 @@ export function ScreenplayEpisodeStage({ projectId, stories }: { readonly projec
     <section className="mode2-panel"><div className="mode2-panel-head"><div><strong>剧本工作稿</strong><small>动作可见、对白可演、来源可追溯</small></div><span className="grow" /><span className={`badge ${planReady ? 'good' : 'warn'}`}>{planReady ? (creating ? '新剧集' : selectedDraft !== null && selectedDraft !== undefined ? '待确认' : '只读') : '改编方案未就绪'}</span></div><div className="mode2-panel-body"><h1 className="mode2-main-title">{creating ? '新建下一集剧本' : episode === undefined ? '剧本' : episodeLabel(episode.episodeId)}</h1><p className="mode2-main-copy">剧本工作稿严格绑定当前已确认改编方案。这里保存的是待确认文件，不会因为保存成功就自动成为正式剧本，也不会跳过下一步剧本审查。</p>
       {!planReady && <div className="mode2-boundary top-gap">请先完成并确认“改编方案”。没有当前有效的正式改编方案时，不能创建新的剧本工作稿。</div>}
       {draftStale && <div className="mode2-boundary top-gap">这份工作稿依赖的改编方案已经变化，旧稿保留用于追溯，但不能继续当成当前有效剧本修改。</div>}
-      <div className="form-row top-gap"><div className="label">剧本正文</div><textarea className="input" rows={24} value={content} disabled={!planReady || busy === 'load' || busy === 'episode' || (!creating && episode !== undefined && episode.draft === null) || draftStale} onChange={event => { setContent(event.target.value); setNotice(undefined) }} placeholder={'例如：\n# 第 1 集\n\n## 场 1 · 地点 · 日/夜\n\n动作、人物反应和可表演对白……'} /></div>
+      <div className="form-row top-gap"><div className="label">剧本正文</div><MarkdownDraftField textareaClassName="input" rows={24} value={content} disabled={!planReady || busy === 'load' || busy === 'episode' || (!creating && episode !== undefined && episode.draft === null) || draftStale} onChangeText={value => { setContent(value); setNotice(undefined) }} placeholder={'例如：\n# 第 1 集\n\n## 场 1 · 地点 · 日/夜\n\n动作、人物反应和可表演对白……'} /></div>
       <div className="mode2-action-stack"><button className="btn primary" type="button" disabled={saveDisabled} onClick={() => { void save() }}>{busy === 'save' ? '保存中…' : creating ? '保存为待确认剧本' : '保存工作稿修改'}</button></div>
       {episode?.draft !== null && episode?.draft !== undefined && !draftStale && <div className="mode2-status-card"><strong>当前仍是待确认剧本</strong><p>文件已写入作品仓库，但还不能作为视觉资产和分镜的正式依据。下一步需要真实剧本审查，再由作者明确确认定稿。</p></div>}
       {episode?.canonical !== null && episode?.canonical !== undefined && <div className="mode2-status-card"><strong>已有正式剧本</strong><p>当前剧集已经存在作者确认版本。正式版本保持可追溯；新的修改不能无痕覆盖它。</p></div>}
