@@ -320,7 +320,7 @@ function NarraticaTopbar(props: TopbarProps) {
       const instruction = tool.instruction ?? MODE1_TOOL_INSTRUCTIONS[tool.id]
       if (instruction !== undefined && !opening) {
         setOpening(true); setError(undefined); setToast('正在调用 AI 导演…')
-        try { await props.prepareDirector(workspace.projectId, 'novel'); await props.runDirector(workspace.projectId, instruction); closeFloating(); props.showDirector(); setToast('已提交给 AI 导演，请在助手中查看结果') }
+        try { await props.prepareDirector(workspace.projectId, 'novel'); closeFloating(); props.showDirector(); await props.runDirector(workspace.projectId, instruction); setToast('已提交给 AI 导演，请在助手中查看结果') }
         catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)) }
         finally { setOpening(false) }
         return
@@ -335,8 +335,9 @@ function NarraticaTopbar(props: TopbarProps) {
         try {
           selectMode2Stage('storyboard')
           await props.prepareDirector(workspace.projectId, 'screenplay-preproduction')
+          closeFloating(); props.showDirector()
           await props.runDirector(workspace.projectId, '请检查当前正式剧本、已采用视觉资产与当前分镜的连续性，重点检查人物状态、空间方向、道具、动作接续、信息呈现与版本新鲜度。只报告问题或更新待确认影视前期产物，不执行任何采用或确认。')
-          closeFloating(); props.showDirector(); setToast('已提交给 AI 导演，请在助手中查看结果')
+          setToast('已提交给 AI 导演，请在助手中查看结果')
         } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)) }
         finally { setOpening(false) }
         return
@@ -352,8 +353,9 @@ function NarraticaTopbar(props: TopbarProps) {
           selectMode3View('episode')
           publishCoreView('workbench')
           await props.prepareDirector(workspace.projectId, 'media-production')
+          closeFloating(); props.showDirector()
           await props.runDirector(workspace.projectId, instruction)
-          closeFloating(); props.showDirector(); setToast('已提交给 AI 导演，请在助手中查看结果')
+          setToast('已提交给 AI 导演，请在助手中查看结果')
         } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)) }
         finally { setOpening(false) }
         return
