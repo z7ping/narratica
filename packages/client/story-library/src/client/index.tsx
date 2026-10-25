@@ -7,7 +7,6 @@ import { NarraticaMark, NarraticaWordmark } from '@narratica/client-layout/ui'
 import type { NarraticaDirectorClient, NarraticaStoriesClient, NarraticaWorkspaceClient, StoryClientSnapshot } from '@narratica/client-runtime/client'
 import type {} from '@narratica/client-runtime/client'
 import type {} from '@narratica/client-workspace/client'
-import type {} from '@deepseek-ai/dsh-client-runtime/client'
 
 interface StoryLibraryInjected {
   hooks: { stories: Pick<NarraticaStoriesClient, 'getSnapshot' | 'subscribe'> }

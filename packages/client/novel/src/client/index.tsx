@@ -34,7 +34,6 @@ import type {
 } from '@narratica/client-runtime/client'
 import type {} from '@narratica/client-runtime/client'
 import type {} from '@narratica/client-workspace/client'
-import type {} from '@deepseek-ai/dsh-client-runtime/client'
 
 interface NovelSurfaceController { focusSession(sessionId: string): void }
 interface NovelInjected {
