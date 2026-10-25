@@ -8,13 +8,15 @@ const parser = new Marked({ gfm: true, breaks: false })
 export function MarkdownDocument({ text, compact = false }: { readonly text: string; readonly compact?: boolean }) {
   const html = useMemo(() => DOMPurify.sanitize(parser.parse(text, { async: false }) as string, {
     USE_PROFILES: { html: true },
+    FORBID_ATTR: ['style'],
+    FORBID_TAGS: ['style', 'form', 'iframe'],
   }), [text])
   return <div className={`narratica-markdown${compact ? ' compact' : ''}`} dangerouslySetInnerHTML={{ __html: html }} />
 }
 
 /** Reading vs source editing is presentation-only; story mutations keep their existing boundary. */
 export function MarkdownDraftField({
-  value, onChangeText, rows, disabled, readOnly = false, placeholder, textareaClassName = 'input',
+  value, onChangeText, rows, disabled, readOnly = false, placeholder, textareaClassName = 'input', label = 'Markdown 源码',
 }: {
   readonly value: string
   readonly onChangeText: (next: string) => void
@@ -23,6 +25,7 @@ export function MarkdownDraftField({
   readonly readOnly?: boolean
   readonly placeholder?: string
   readonly textareaClassName?: string
+  readonly label?: string
 }) {
   const [preview, setPreview] = useState(readOnly)
   useEffect(() => { setPreview(readOnly) }, [readOnly])
@@ -33,6 +36,6 @@ export function MarkdownDraftField({
     </div>
     {preview
       ? <div className="narratica-markdown-preview" style={{ minHeight: 180, minWidth: 0, overflowX: 'auto', padding: '16px 12px' }}><MarkdownDocument text={value} /></div>
-      : <textarea className={textareaClassName} rows={rows} value={value} disabled={disabled} readOnly={readOnly} onChange={event => { onChangeText(event.target.value) }} placeholder={placeholder} />}
+      : <textarea aria-label={label} className={textareaClassName} rows={rows} value={value} disabled={disabled} readOnly={readOnly} onChange={event => { onChangeText(event.target.value) }} placeholder={placeholder} />}
   </div>
 }

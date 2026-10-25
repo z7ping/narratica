@@ -15,6 +15,7 @@ test('one sanitized GFM renderer is used for story reading', async () => {
   assert.match(workspace, /isMarkdown/)
   assert.match(workspace, /MarkdownDocument text=\{detail\.content\}/)
   assert.match(workspace, /showSource/)
+  assert.match(shared, /FORBID_ATTR/)
 })
 
 test('screenplay, adaptation, review, assets and storyboards can preview drafts without changing save semantics', async () => {
