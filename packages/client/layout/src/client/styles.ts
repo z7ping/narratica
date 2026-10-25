@@ -94,6 +94,11 @@ export const STYLES = `
 .narratica-root .narratica-outline-body{min-width:0;scroll-margin-top:16px}
 @media(max-width:899px){.narratica-root .narratica-outline-layout{grid-template-columns:1fr}.narratica-root .narratica-outline-index{border-right:0;border-bottom:1px solid var(--n-border,var(--line));max-height:210px}}
 
+/* Neutral AI action hint, not an interactive badge or a success signal. */
+.narratica-root .narratica-ai-hint{display:inline-flex;align-items:center;vertical-align:baseline;margin-inline-start:5px;white-space:nowrap;font-size:11px;font-weight:750;line-height:1.1;letter-spacing:.025em;color:var(--n-text-secondary,var(--muted))}
+.narratica-root .narratica-ai-status{max-width:var(--n-page-max);margin:0 auto var(--n-space-2);font-size:var(--n-font-size-sm)}
+.narratica-root .narratica-ai-confirm .modal-body{line-height:1.65}
+
 @media(max-width:1180px){
   .topbar{height:auto;min-height:64px;grid-template-columns:1fr auto;padding-top:8px;padding-bottom:8px}.mode-tabs{grid-row:2;grid-column:1/-1;justify-self:center}.m1grid,.stage-grid,.m3grid{grid-template-columns:220px minmax(0,1fr)}.m1grid>.panel:last-child,.stage-grid>.panel:last-child,.m3grid>.panel:last-child{grid-column:1/-1}.story-grid{grid-template-columns:repeat(2,1fr)}.body{height:auto}
 }
