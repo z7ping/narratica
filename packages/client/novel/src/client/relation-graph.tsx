@@ -42,7 +42,7 @@ export function RelationGraph({ state, entities }: {
     <div className="row" role="group" aria-label="人物关系展示方式">
       <button className={`btn mini${view === 'graph' ? ' primary' : ''}`} type="button" aria-pressed={view === 'graph'} onClick={() => { setView('graph') }}>关系图谱</button>
       <button className={`btn mini${view === 'list' ? ' primary' : ''}`} type="button" aria-pressed={view === 'list'} onClick={() => { setView('list') }}>关系列表</button>
-      <span className="meta">已确认 {state.canonical.length} · 待确认 {state.proposed.length}</span>
+      <span className="meta">已确认 {state.canonical.length} · 待确认 {state.proposed.length} · 虚线表示待确认</span>
     </div>
     {view === 'graph' && <div className="narratica-relation-scroll">
       <div className="narratica-relation-canvas">
@@ -72,7 +72,7 @@ export function RelationGraph({ state, entities }: {
       </div>
       {view === 'list' || focused !== null ? <div className="narratica-relation-table-scroll">
         <table className="table"><thead><tr><th>起点</th><th>关系</th><th>终点</th><th>状态</th><th>说明</th></tr></thead><tbody>
-          {related.map(({ relation, proposed }) => <tr key={relation.id} onClick={() => { setChosenRelation(relation.id) }}><td>{labels.get(relation.fromId) ?? relation.fromId}</td><td>{relation.type}{relation.direction === 'bidirectional' ? ' ↔' : ' →'}</td><td>{labels.get(relation.toId) ?? relation.toId}</td><td>{proposed ? '待确认' : '正式'}</td><td>{relation.description || '—'}</td></tr>)}
+          {related.map(({ relation, proposed }) => <tr key={relation.id}><td><button className="link-button" type="button" onClick={() => { setChosenRelation(relation.id) }}>{labels.get(relation.fromId) ?? relation.fromId}</button></td><td>{relation.type}{relation.direction === 'bidirectional' ? ' ↔' : ' →'}</td><td>{labels.get(relation.toId) ?? relation.toId}</td><td>{proposed ? '待确认' : '正式'}</td><td>{relation.description || '—'}</td></tr>)}
         </tbody></table>
       </div> : <p className="meta">点击节点查看关联事实，或切换到关系列表查看全部详情。</p>}
       {selectedRelation && <div className="narratica-relation-selected"><strong>关系 {selectedRelation.relation.id}</strong><p>{selectedRelation.relation.description || '尚无关系描述'}</p><span className="meta">来源：{selectedRelation.relation.source} · {selectedRelation.proposed ? '待作者确认' : '已确认'}</span></div>}
