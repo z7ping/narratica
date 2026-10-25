@@ -25,3 +25,11 @@ export function NarraticaMark({ size = 32, className }: { readonly size?: number
     </svg>
   )
 }
+
+/** Visible notice for an action that immediately calls an AI model or generation provider. */
+export function AiActionHint({ kind = 'director' }: { readonly kind?: 'director' | 'media' }) {
+  const message = kind === 'media'
+    ? '调用 AI 生成服务，可能消耗额度或费用；只产生候选'
+    : '调用 AI 导演，可能消耗模型用量；遵循现有作者确认规则'
+  return <span className="narratica-ai-hint" title={message} aria-label={message}>AI</span>
+}
