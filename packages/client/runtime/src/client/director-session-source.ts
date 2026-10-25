@@ -14,8 +14,9 @@ export function createDirectorSessionSource(
   sessions: ISessions,
   sessionId: SessionId,
 ): DirectorSessionSource | undefined {
-  const session = sessions.binding(sessionId)?.session
-  if (session === undefined) return undefined
+  const sessionBinding = sessions.binding(sessionId)
+  const session = sessionBinding?.session
+  if (session === undefined || sessionBinding === undefined) return undefined
   const conversation = (ctx as Context & { uiConversation: UiConversation }).uiConversation
   if (conversation === undefined) return undefined
   const binding = conversation.binding(sessionId)
@@ -35,9 +36,12 @@ export function createDirectorSessionSource(
       }
     },
     subscribe: (listener) => {
+      // DSH 0.2.1 的 Chat 节点按 key 增量发布；同时监听原生事件源，
+      // 确保仅有 assistant/live-chunk 更新、尚无完整 Chat 行时也立即通知 UI。
+      const unwatchEvents = sessionBinding.eventSource.subscribe(listener)
       const unwatchChat = chat.subscribe(listener)
       const unwatchSession = session.subscribe(listener)
-      return () => { unwatchChat(); unwatchSession() }
+      return () => { unwatchEvents(); unwatchChat(); unwatchSession() }
     },
   }
 }
