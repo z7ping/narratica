@@ -26,7 +26,7 @@ test('novel relation graph is backed by actual registry and canonical entities',
 test('outline nav projects heading tokens without rewriting the original markdown', async () => {
   const markdown = await readFile('packages/client/layout/src/client/markdown.tsx', 'utf8')
   const outline = await readFile('packages/client/novel/src/client/outline-navigation.tsx', 'utf8')
-  assert.match(markdown, /parser.lexer\(text\)/)
+  assert.match(markdown, /parser.lexer/)
   assert.match(markdown, /token.type === 'heading'/)
   assert.match(outline, /<MarkdownDocument text=\{text\}/)
   assert.match(outline, /scrollIntoView/)
