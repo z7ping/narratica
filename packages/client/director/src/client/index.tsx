@@ -329,7 +329,7 @@ function DirectorPanel(props: DirectorProps) {
       ? '讨论当前镜头、候选或生产问题；采用与交付请在工作台确认'
       : '讨论来源、改编、剧本或分镜；正式确认请在工作台执行'
   const [snapshot, setSnapshot] = useState<DirectorConversationSnapshot>()
-  const directorReference = props.useDirectorReference()
+  const directorReference = props.useDirectorReference(value => value)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [notice, setNotice] = useState<string>()
