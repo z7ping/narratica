@@ -39,10 +39,11 @@ test('导演助手三模式都只渲染真实 DSH Session，不保留旧未接�
   const runtime = await read('packages/client/runtime/src/client/index.ts')
   const styles = await read('packages/client/layout/src/client/director-assistant.ts')
 
-  assert.match(director, /snapshot\?\.nodes\.map\(textFromNode\)/)
-  assert.match(director, /snapshot\?\.partial\?\.blocks/)
-  assert.match(director, /props\.sessionForProject\(projectId\)/)
+  assert.match(director, /renderFactorySlot\('conversation\.content'/)
+  assert.match(director, /renderSlot\('conversation\.session', \{ view: 'chat' \}\)/)
+  assert.match(director, /props\.SessionProvider session=\{directorReference\}/)
   assert.match(director, /props\.submit\(projectId, text\)/)
+  assert.doesNotMatch(director, /textFromNode|snapshot\?\.partial|followTailRef/)
   assert.doesNotMatch(director, /固定调度|伪导演消息|StaticAssistant/)
 
   assert.match(shell, /if \(mode === 'novel'\) return 'novel'/)
@@ -52,7 +53,7 @@ test('导演助手三模式都只渲染真实 DSH Session，不保留旧未接�
   assert.doesNotMatch(shell, /当前只有小说创作可以使用真实导演会话/)
 
   assert.match(runtime, /route === 'screenplay-preproduction' \|\| route === 'media-production'/)
-  assert.match(styles, /\.director-body>\.assistant-msg/)
-  assert.match(styles, /white-space:pre-wrap/)
+  assert.match(styles, /\.director-chat-host/)
+  assert.match(styles, /data-conversation-region="composer"/)
   assert.doesNotMatch(styles, /fixed-schedule|StaticAssistant/)
 })

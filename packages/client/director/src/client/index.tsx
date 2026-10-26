@@ -1,10 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AiActionHint } from '@narratica/client-layout/ui'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type { ConversationNode } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ConversationViewsProps, UserTextRule } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { DirectorConversationSnapshot } from '@narratica/client-runtime/client'
-import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InjectFace, PropsRenderFactories, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { NovelExtractedOutlineApplyPreview, NovelGoldenThreeApplyPreview, NovelOutlineApplyPreview, NovelRelation, NovelRelationRemovalApproval, NovelRelationRestoreApproval, NovelSettingChangeSet, ProjectId, StoryContentRevision } from '@narratica/contracts'
 import type {} from '@narratica/client-layout/client'
 import type { DirectorSessionSource, DirectorSubmitResult, NarraticaDirectorRoute, NarraticaStoriesClient, NarraticaWorkspaceClient, NarraticaWorkspaceSnapshot } from '@narratica/client-runtime/client'
@@ -12,7 +12,10 @@ import type {} from '@narratica/client-runtime/client'
 import type {} from '@narratica/client-workspace/client'
 
 interface DirectorInjected {
-  hooks: { workspace: Pick<NarraticaWorkspaceClient, 'getSnapshot' | 'subscribe'> }
+  hooks: {
+    workspace: Pick<NarraticaWorkspaceClient, 'getSnapshot' | 'subscribe'>
+    directorReference: import('@narratica/client-layout/client').NarraticaSurfaceController['directorReference']
+  }
   stories: Pick<NarraticaStoriesClient,
     | 'getNovelSettingState'
     | 'previewNovelSettingSave'
@@ -37,8 +40,7 @@ interface DirectorInjected {
   close: () => void
 }
 
-type DirectorProps = PropsRuntime<'narratica.inspector'> & InjectFace<DirectorInjected>
-interface DirectorMessage { readonly role: '你' | '导演助手'; readonly kind: 'user' | 'assistant' | 'error'; readonly text: string }
+type DirectorProps = PropsRuntime<'narratica.inspector'> & PropsRenderSlots<'narratica.director.conversation'> & InjectFace<DirectorInjected>
 interface SettingPreviewCheckpoint {
   readonly sessionRevision: StoryContentRevision
   readonly fingerprint: string
@@ -81,34 +83,37 @@ function isNovelLocalCommand(text: string): boolean {
   return NOVEL_LOCAL_COMMANDS.some(rule => rule.test(text))
 }
 
-const DIRECTOR_ENVELOPE_COMMAND = /^\/(?:novel-director|novel-to-short-drama|short-drama-director)$/
-
-function visibleDirectorUserText(text: string): string {
-  const normalized = text.replace(/\r\n/g, '\n').trim()
-  const lines = normalized.split('\n')
-  if (!DIRECTOR_ENVELOPE_COMMAND.test(lines[0]?.trim() ?? '')) return normalized
-  const separator = lines.findIndex((line, index) => index >= 2 && line.trim() === '')
-  if (separator < 0) return normalized
-  return lines.slice(separator + 1).join('\n').trim()
+/** DSH's shared UserText pipeline hides only Narratica's private routing envelope.
+ * The durable DSH Session message is kept intact for skill execution and audit.
+ */
+const DIRECTOR_ENVELOPE = /^\/(?:novel-director|novel-to-short-drama|short-drama-director)\r?\n当前 Story Project：[^\r\n]+\r?\n当前导演路由：(?:novel|screenplay-adaptation|screenplay-preproduction|media-production)\r?\n(?:当前 Director Role：(?:novel|screenplay|production)\r?\n)?\r?\n/u
+const directorEnvelopeRule: UserTextRule<'narratica-director-envelope'> = {
+  id: 'narratica-director-envelope',
+  order: -100,
+  match(text, from) {
+    if (from !== 0) return undefined
+    const envelope = DIRECTOR_ENVELOPE.exec(text)?.[0]
+    return envelope === undefined ? undefined : {
+      id: 'text',
+      start: 0,
+      end: envelope.length,
+      data: { text: envelope, display: '' },
+    }
+  },
 }
 
-function textFromNode(node: ConversationNode): DirectorMessage | undefined {
-  if (node.kind === 'turn-error') {
-    const detail = node.message || node.code || '未知错误'
-    const text = node.code === 'QUOTA' ? `模型服务余额或额度不足：${detail}` : `导演请求失败：${detail}`
-    return { role: '导演助手', kind: 'error', text }
-  }
-  if (node.kind === 'turn-max-tokens') return { role: '导演助手', kind: 'error', text: '本轮已达到模型输出上限，请缩小任务范围后继续。' }
-  if (node.kind === 'user' || node.kind === 'steering') {
-    const raw = node.content.filter(block => block.type === 'text').map(block => block.text).join('\n').trim()
-    const text = visibleDirectorUserText(raw)
-    return text.length === 0 ? undefined : { role: '你', kind: 'user', text }
-  }
-  if (node.kind === 'assistant') {
-    const text = node.blocks.filter(block => block.kind === 'text').map(block => block.text).join('\n').trim()
-    return text.length === 0 ? undefined : { role: '导演助手', kind: 'assistant', text }
-  }
-  return undefined
+/** Reuse the same DSH Chat View as its official embedded subagent conversation. */
+function FixedDirectorChatView({ renderSlot }: ConversationViewsProps) {
+  return renderSlot('conversation.session', { view: 'chat' })
+}
+
+type DirectorChatProps = PropsRuntime<'narratica.director.conversation'> & PropsRenderFactories
+function DirectorChat({ renderFactorySlot }: DirectorChatProps) {
+  return renderFactorySlot('conversation.content', {
+    variant: 'embedded',
+    phase: 'active',
+    hero: false,
+  }, { slots: { views: FixedDirectorChatView } })
 }
 
 function settingPreviewFingerprint(preview: NovelSettingChangeSet): string {
@@ -324,8 +329,7 @@ function DirectorPanel(props: DirectorProps) {
       ? '讨论当前镜头、候选或生产问题；采用与交付请在工作台确认'
       : '讨论来源、改编、剧本或分镜；正式确认请在工作台执行'
   const [snapshot, setSnapshot] = useState<DirectorConversationSnapshot>()
-  const bodyRef = useRef<HTMLDivElement>(null)
-  const followTailRef = useRef(true)
+  const directorReference = props.useDirectorReference(value => value)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [notice, setNotice] = useState<string>()
@@ -352,18 +356,6 @@ function DirectorPanel(props: DirectorProps) {
     sync()
     return session.subscribe(sync)
   }, [directorOpen, projectId, route, props.sessionForProject])
-
-  // Keep new output in view only while the reader is at the tail; never
-  // pull them back down after they scroll up to inspect earlier messages.
-  useLayoutEffect(() => {
-    followTailRef.current = true
-    const body = bodyRef.current
-    if (body !== null) body.scrollTop = body.scrollHeight
-  }, [directorOpen, projectId, route])
-  useLayoutEffect(() => {
-    const body = bodyRef.current
-    if (followTailRef.current && body !== null) body.scrollTop = body.scrollHeight
-  }, [snapshot, sending])
 
   if (!directorOpen || projectId === undefined) return null
 
@@ -611,29 +603,22 @@ function DirectorPanel(props: DirectorProps) {
     } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)) } finally { setSending(false) }
   }
 
-  const messages = snapshot?.nodes.map(textFromNode).filter((message): message is DirectorMessage => message !== undefined) ?? []
-  const partial = snapshot?.partial?.blocks.filter(block => block.kind === 'text').map(block => block.text).join('\n').trim()
   const sendsToAi = draft.trim().length > 0 && !isNovelLocalCommand(draft.trim())
-  const aiRunning = snapshot?.running === true || (sending && sendsToAi)
-  const streaming = (partial?.length ?? 0) > 0
 
   return <>
     <button className="overlay show overlay-button director-overlay" type="button" aria-label="关闭导演助手" onClick={props.close} />
     <aside className="drawer open assistant-drawer" aria-label="导演助手">
       <div className="drawer-head"><b>导演助手</b><span className="badge">{directorLabel}</span><div className="grow" /><button className="icon-btn" type="button" onClick={props.close}>×</button></div>
-      <div className="drawer-body director-body" ref={bodyRef} onScroll={event => {
-        const body = event.currentTarget
-        followTailRef.current = body.scrollHeight - body.scrollTop - body.clientHeight <= 72
-      }}>
+      <div className="drawer-body director-body">
         <div className="assistant-msg">{activityMessage}</div>
-        <div className="small-card"><h4>需要作者确认的操作</h4><p>{confirmationMessage}</p></div>
-        {snapshot === undefined && <div className="assistant-msg">正在连接当前项目的{directorLabel}会话…</div>}
-        {messages.map((message, index) => <div className={message.kind === 'error' ? 'error top-gap' : `assistant-msg${message.kind === 'user' ? ' user' : ''}`} role={message.kind === 'error' ? 'alert' : undefined} key={`${message.role}-${index}`}><b>{message.role}</b><div>{message.text}</div></div>)}
-        {streaming && <div className={aiRunning ? 'assistant-msg director-streaming' : 'assistant-msg'} aria-live="off"><b>导演助手</b><div>{partial}</div></div>}
-        {aiRunning && <div className="assistant-msg director-running" role="status" aria-live="polite">
-          <span className="director-stream-dots" aria-hidden="true"><i /><i /><i /></span>
-          {streaming ? '正在输出…' : 'AI 正在思考…'}
-        </div>}
+        <details className="small-card director-confirmation"><summary>需要作者确认的操作</summary><p>{confirmationMessage}</p></details>
+        <div className="director-chat-host" aria-label="导演助手对话">
+          {directorReference === undefined
+            ? <div className="assistant-msg" role="status">正在连接当前项目的{directorLabel}会话…</div>
+            : <props.SessionProvider session={directorReference}>
+                {props.renderSlot('narratica.director.conversation', {})}
+              </props.SessionProvider>}
+        </div>
         {notice !== undefined && <div className="notice top-gap" role="status" style={{ whiteSpace: 'pre-wrap' }}>{notice}</div>}
         {snapshot?.promptError !== null && snapshot?.promptError !== undefined && <div className="error top-gap" role="alert">{snapshot.promptError.error.message}</div>}
         {error !== undefined && <div className="error top-gap" role="alert">{error}</div>}
@@ -647,11 +632,28 @@ function DirectorPanel(props: DirectorProps) {
   </>
 }
 
-export const inject = ['slots', 'narraticaDirectorClient', 'narraticaStoriesClient', 'narraticaWorkspaceClient'] as const
+export const inject = ['slots', 'uiConversation', 'narraticaSurface', 'narraticaDirectorClient', 'narraticaStoriesClient', 'narraticaWorkspaceClient'] as const
 
 export function apply(ctx: Context): void {
   const director = ctx.narraticaDirectorClient
   const stories = ctx.narraticaStoriesClient
   const workspace = ctx.narraticaWorkspaceClient
-  ctx.slots.inject('narratica.inspector', () => ctx.slots.register({ name: 'narratica.inspector', inject: (): DirectorInjected => ({ hooks: { workspace }, stories, routeForProject: projectId => director.routeForProject(projectId), sessionForProject: projectId => director.sessionForProject(projectId), submit: (projectId, text) => director.submitForProject(projectId, text), cancel: projectId => director.cancelForProject(projectId), close: () => workspace.hideDirector() }) }, DirectorPanel))
+  const directorReference = ctx.narraticaSurface.directorReference
+  ctx.effect(() => ctx.uiConversation.userText.register(directorEnvelopeRule), 'narratica: strip director routing headers in chat presentation')
+  ctx.slots.inject('narratica.inspector', () => ctx.slots.register({
+    name: 'narratica.inspector',
+    children: { 'narratica.director.conversation': { kind: 'single', scope: 'session' } },
+    inject: (): DirectorInjected => ({
+      hooks: { workspace, directorReference },
+      stories,
+      routeForProject: projectId => director.routeForProject(projectId),
+      sessionForProject: projectId => director.sessionForProject(projectId),
+      submit: (projectId, text) => director.submitForProject(projectId, text),
+      cancel: projectId => director.cancelForProject(projectId),
+      close: () => workspace.hideDirector(),
+    }),
+  }, DirectorPanel))
+  ctx.slots.inject('narratica.director.conversation', () => ctx.slots.register({
+    name: 'narratica.director.conversation',
+  }, DirectorChat))
 }
