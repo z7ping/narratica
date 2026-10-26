@@ -190,8 +190,14 @@ export function apply(ctx: ClientContext): void {
     ctx.layout.selectPanel(null)
   }
   const toggleNarratica = (): void => {
-    if (ctx.layout.panelInfo.getSnapshot().activePanelId === NARRATICA_PANEL_ID) closeNarratica()
-    else ctx.layout.selectPanel(NARRATICA_PANEL_ID)
+    if (ctx.layout.panelInfo.getSnapshot().activePanelId === NARRATICA_PANEL_ID) {
+      closeNarratica()
+      return
+    }
+
+    ctx.layout.selectPanel(NARRATICA_PANEL_ID)
+    // DSH only exposes a sidebar toggle: never reopen an already-collapsed rail.
+    if (document.querySelector('[data-sidebar-collapsed]') === null) ctx.layout.toggleSidebar()
   }
 
   const surfaceController: NarraticaSurfaceController = {
