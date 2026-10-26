@@ -611,7 +611,7 @@ function DirectorPanel(props: DirectorProps) {
       <div className="drawer-head"><b>导演助手</b><span className="badge">{directorLabel}</span><div className="grow" /><button className="icon-btn" type="button" onClick={props.close}>×</button></div>
       <div className="drawer-body director-body">
         <div className="assistant-msg">{activityMessage}</div>
-        <div className="small-card"><h4>需要作者确认的操作</h4><p>{confirmationMessage}</p></div>
+        <details className="small-card director-confirmation"><summary>需要作者确认的操作</summary><p>{confirmationMessage}</p></details>
         <div className="director-chat-host" aria-label="导演助手对话">
           {directorReference === undefined
             ? <div className="assistant-msg" role="status">正在连接当前项目的{directorLabel}会话…</div>
