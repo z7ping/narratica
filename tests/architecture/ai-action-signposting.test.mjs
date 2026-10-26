@@ -28,14 +28,16 @@ test('toolbox distinguishes AI execution from navigation and opening director', 
   assert.match(source, /正在调用 AI 导演/)
 })
 
-test('only consequential chapter closure gets an additional confirmation dialog', async () => {
+test('chapter closure and tool executions use the same explicit AI confirmation', async () => {
   const novel = await readFile('packages/client/novel/src/client/index.tsx', 'utf8')
   const workspace = await readFile('packages/client/workspace/src/client/index.tsx', 'utf8')
-  assert.match(novel, /chapterAiConfirm/)
-  assert.match(novel, /setChapterAiConfirm\(false\); void closeChapter\(\)/)
-  assert.match(workspace, /panel === 'ai-confirm'/)
+  assert.match(novel, /useAiActionConfirmation\(\)/)
+  assert.match(novel, /runDirector\(label, instruction, true\)/)
+  assert.match(novel, /label === '本章检查'/)
+  assert.doesNotMatch(novel, /chapterAiConfirm/)
+  assert.match(workspace, /toolStartsAi\(mode, tool\) && !confirmed/)
   assert.match(workspace, /runTool\(tool, true\)/)
-  assert.match(workspace, /tool\.id === 'commit'/)
+  assert.doesNotMatch(workspace, /panel === 'ai-confirm'/)
 })
 
 test('director composer identifies deterministic local commands instead of labeling all sends as AI', async () => {

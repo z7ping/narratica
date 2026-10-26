@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useEffect, useId, useState } from 'react'
 import narraticaWordmarkUrl from './assets/narratica-wordmark.svg'
 
 export function NarraticaWordmark({ className }: { readonly className?: string }) {
@@ -32,4 +32,51 @@ export function AiActionHint({ kind = 'director' }: { readonly kind?: 'director'
     ? '调用 AI 生成服务，可能消耗额度或费用；只产生候选'
     : '调用 AI 导演，可能消耗模型用量；遵循现有作者确认规则'
   return <span className="narratica-ai-hint" title={message} aria-label={message}>AI</span>
+}
+
+/** Use one explicit, non-skippable confirmation before every model/provider execution. */
+export interface AiActionRequest {
+  readonly label: string
+  readonly purpose: string
+  readonly kind?: 'director' | 'media'
+  readonly execute: () => void
+}
+
+export function useAiActionConfirmation() {
+  const [pending, setPending] = useState<AiActionRequest>()
+  const requestAi = (request: AiActionRequest): void => {
+    setPending(current => current ?? request)
+  }
+  const cancel = (): void => { setPending(undefined) }
+
+  useEffect(() => {
+    if (pending === undefined) return
+    const onEscape = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      cancel()
+    }
+    document.addEventListener('keydown', onEscape, true)
+    return () => { document.removeEventListener('keydown', onEscape, true) }
+  }, [pending])
+
+  const aiDialog = pending === undefined ? null : <>
+    <button className="overlay show overlay-button" type="button" aria-label="取消 AI 操作" onClick={cancel} />
+    <div className="modal open generic-modal narratica-ai-confirm" role="dialog" aria-modal="true" aria-label="AI 操作确认">
+      <div className="modal-head"><b>确认调用{pending.kind === 'media' ? '媒体生成服务' : ' AI 导演'}？</b><div className="grow" /><button className="icon-btn" type="button" aria-label="取消" onClick={cancel}>×</button></div>
+      <div className="modal-body">
+        <p><strong>将执行：</strong>{pending.label}</p>
+        <p>{pending.purpose}</p>
+        <p className="notice">确认后才会真正发起{pending.kind === 'media' ? '媒体生成请求' : '模型请求'}，可能消耗额度或产生费用；取消不会触发 AI。</p>
+        <p className="meta">这次确认仅授权执行上方说明的任务；候选采用仍由作者决定，章节提交等操作可能在满足原有质量门禁后更新正式记录。</p>
+      </div>
+      <div className="modal-actions">
+        <button className="btn" type="button" autoFocus onClick={cancel}>取消</button>
+        <button className="btn primary" type="button" onClick={() => { const execute = pending.execute; setPending(undefined); execute() }}>确认并调用 AI <AiActionHint kind={pending.kind} /></button>
+      </div>
+    </div>
+  </>
+
+  return { requestAi, aiDialog }
 }

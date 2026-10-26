@@ -4,7 +4,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ImportNovelTextResult, InitializeNovelProjectResult, NovelWorkspaceProjection, ProjectId, StoryDomain } from '@narratica/contracts'
 import type { NarraticaSurfaceController } from '@narratica/client-layout/client'
-import { AiActionHint, NarraticaMark, NarraticaWordmark } from '@narratica/client-layout/ui'
+import { AiActionHint, NarraticaMark, NarraticaWordmark, useAiActionConfirmation } from '@narratica/client-layout/ui'
 import type { NarraticaDirectorClient, NarraticaStoriesClient, NarraticaWorkspaceClient, StoryClientSnapshot } from '@narratica/client-runtime/client'
 import type {} from '@narratica/client-runtime/client'
 import type {} from '@narratica/client-workspace/client'
@@ -33,6 +33,7 @@ const DOMAIN_LABELS: Record<StoryDomain, string> = { novel: '小说', screenplay
 function StoryLibrary(props: StoryLibraryProps) {
   const snapshot = props.useStories((value: StoryClientSnapshot) => value)
   const [modal, setModal] = useState<LibraryModal>()
+  const { requestAi, aiDialog } = useAiActionConfirmation()
   const [storyName, setStoryName] = useState('未命名故事')
   const [projectId, setProjectId] = useState('story-001')
   const [repositoryPath, setRepositoryPath] = useState('')
@@ -80,8 +81,16 @@ function StoryLibrary(props: StoryLibraryProps) {
     catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)) } finally { setBusy(false) }
   }
 
-  const createQuick = async (): Promise<void> => {
+  const createQuick = async (confirmed = false): Promise<void> => {
     if (busy || quickIdea.trim().length === 0) return
+    if (!confirmed) {
+      requestAi({
+        label: '快速开始新故事',
+        purpose: '先创建新的故事工作空间，再把当前故事想法交给 AI 小说导演整理基础设定。会创建项目文件，但 AI 候选不会自动定稿。',
+        execute: () => { void createQuick(true) },
+      })
+      return
+    }
     setBusy(true); setError(undefined)
     try {
       const result = await createProject()
@@ -198,6 +207,7 @@ function StoryLibrary(props: StoryLibraryProps) {
           <div className="modal-actions"><button className="btn" type="button" disabled={busy} onClick={closeModal}>关闭</button>{modal === 'quick' && <button className="btn primary" type="button" disabled={busy || quickIdea.trim().length === 0} onClick={() => { void createQuick() }}>{busy ? '创建中…' : '开始创作'} <AiActionHint /></button>}{modal === 'import' && <button className="btn primary" type="button" disabled={busy || importFile === undefined} onClick={() => { void createImport() }}>{busy ? '导入中…' : '创建并导入'}</button>}</div>
         </div>
       </>}
+      {aiDialog}
     </section>
   )
 }
