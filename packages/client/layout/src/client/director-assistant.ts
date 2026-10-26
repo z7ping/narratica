@@ -1,6 +1,6 @@
 export const DIRECTOR_ASSISTANT_STYLE_ID = 'narratica-v71-director-assistant'
 
-/** V7.1 导演助手仅调整表现层；真实消息、流式输出、确认反馈与执行仍由现有 DSH Session 提供。 */
+/** Narratica owns the drawer and confirmation composer; DSH owns its Chat viewport. */
 export const DIRECTOR_ASSISTANT_STYLES = `
 .narratica-root .assistant-drawer{
   width:min(460px,100vw);
@@ -16,9 +16,11 @@ export const DIRECTOR_ASSISTANT_STYLES = `
 }
 .narratica-root .assistant-drawer .drawer-head b{font-size:var(--n-font-size-md);color:var(--n-text)}
 .narratica-root .assistant-drawer .director-body{
-  height:calc(100vh - 56px);
+  height:calc(100dvh - 56px);
   padding:var(--n-space-3);
   gap:var(--n-space-2);
+  min-height:0;
+  overflow:hidden;
   background:var(--n-bg);
 }
 .narratica-root .assistant-drawer .director-body>.assistant-msg{
@@ -43,18 +45,6 @@ export const DIRECTOR_ASSISTANT_STYLES = `
   color:var(--n-text-tertiary);
   font-size:var(--n-font-size-xs);
 }
-.narratica-root .assistant-drawer .director-body>.assistant-msg.user{
-  margin-left:auto;
-  background:var(--n-brand-soft);
-  border-color:var(--n-brand-border);
-  color:var(--n-text);
-}
-.narratica-root .assistant-drawer .director-body>.assistant-msg b{
-  display:block;
-  margin-bottom:var(--n-space-1);
-  font-size:var(--n-font-size-xs);
-  color:var(--n-text-tertiary);
-}
 .narratica-root .assistant-drawer .director-body>.small-card{
   margin-top:var(--n-space-1);
   border-color:var(--n-border);
@@ -63,10 +53,27 @@ export const DIRECTOR_ASSISTANT_STYLES = `
 }
 .narratica-root .assistant-drawer .director-body>.small-card h4{font-size:var(--n-font-size-sm)}
 .narratica-root .assistant-drawer .director-body>.small-card p{font-size:var(--n-font-size-xs);line-height:var(--n-line-normal)}
+/* Embed the official DSH Conversation content; only Narratica's guarded composer stays visible. */
+.narratica-root .assistant-drawer .director-chat-host{
+  flex:1 1 0;
+  min-height:0;
+  min-width:0;
+  overflow:hidden;
+}
+.narratica-root .assistant-drawer .director-chat-host [data-conversation-content]{
+  height:100%;
+  min-height:0;
+}
+.narratica-root .assistant-drawer .director-chat-host [data-conversation-region="composer"]{
+  display:none;
+}
+.narratica-root .assistant-drawer .director-body>.small-card{
+  flex:0 0 auto;
+}
 .narratica-root .assistant-drawer .director-input{
-  position:sticky;
-  bottom:calc(var(--n-space-3) * -1);
-  margin-top:auto;
+  position:static;
+  flex:0 0 auto;
+  margin-top:0;
   padding:var(--n-space-3) 0 var(--n-space-3);
   border-top:1px solid var(--n-border);
   background:var(--n-bg);
@@ -76,33 +83,6 @@ export const DIRECTOR_ASSISTANT_STYLES = `
   background:var(--n-surface);
 }
 .narratica-root .assistant-drawer .notice,.narratica-root .assistant-drawer .error{font-size:var(--n-font-size-sm);line-height:var(--n-line-normal)}
-/* Session-owned AI activity: no timers and no simulated token output. */
-.narratica-root .assistant-drawer .director-body>.director-running{
-  display:flex;align-items:center;gap:var(--n-space-2);
-  color:var(--n-text-secondary);border-style:dashed;
-  background:var(--n-surface-subtle);
-}
-.narratica-root .assistant-drawer .director-stream-dots{display:inline-flex;align-items:center;gap:4px}
-.narratica-root .assistant-drawer .director-stream-dots i{
-  display:block;width:5px;height:5px;border-radius:50%;
-  background:currentColor;animation:narratica-director-pulse 1.2s ease-in-out infinite;
-}
-.narratica-root .assistant-drawer .director-stream-dots i:nth-child(2){animation-delay:.15s}
-.narratica-root .assistant-drawer .director-stream-dots i:nth-child(3){animation-delay:.3s}
-.narratica-root .assistant-drawer .director-streaming>div::after{
-  content:'';display:inline-block;width:2px;height:1em;margin-left:2px;
-  vertical-align:-.15em;background:var(--n-brand);
-  animation:narratica-director-caret .8s steps(1,end) infinite;
-}
-@keyframes narratica-director-pulse{
-  0%,75%,100%{opacity:.3;transform:scale(.75)}
-  35%{opacity:1;transform:scale(1)}
-}
-@keyframes narratica-director-caret{50%{opacity:0}}
-@media(prefers-reduced-motion:reduce){
-  .narratica-root .assistant-drawer .director-stream-dots i{animation:none;opacity:.75}
-  .narratica-root .assistant-drawer .director-streaming>div::after{animation:none}
-}
 @media(max-width:679px){
   .narratica-root .assistant-drawer{width:100vw}
   .narratica-root .assistant-drawer .director-body>.assistant-msg{max-width:94%}
