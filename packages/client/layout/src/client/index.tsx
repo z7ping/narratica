@@ -29,6 +29,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     }
     'narratica.workspace': { kind: 'single'; scope: 'root' }
     'narratica.inspector': { kind: 'single'; scope: 'root' }
+    'narratica.director.conversation': { kind: 'single'; scope: 'session' }
     'narratica.drawer': { kind: 'single'; scope: 'root' }
     'narratica.overlay': { kind: 'list'; scope: 'root' }
   }
@@ -58,6 +59,10 @@ export function NarraticaMark({ size = 32, className }: { readonly size?: number
 /** UI-only bridge for Narratica-owned Session staging while its workspace stays visible. */
 export interface NarraticaSurfaceController {
   focusSession(sessionId: SessionId): Promise<void>
+  readonly directorReference: {
+    getSnapshot(): SessionReference | undefined
+    subscribe(listener: () => void): () => void
+  }
 }
 
 declare module '@deepseek-ai/cordis' {
@@ -170,9 +175,15 @@ export function apply(ctx: ClientContext): void {
   // 上游 0.2.1 将主面板导航与 Session 生命周期分离。
   // Narratica 使用独立主面板；导演 Session 单独 retain，不抢占 DSH 会话选择。
   let directorReference: SessionReference | undefined
+  const directorListeners = new Set<() => void>()
+  const publishDirectorReference = (): void => {
+    for (const listener of directorListeners) listener()
+  }
   const releaseDirector = (): void => {
-    directorReference?.release()
+    if (directorReference === undefined) return
+    directorReference.release()
     directorReference = undefined
+    publishDirectorReference()
   }
   const closeNarratica = (): void => {
     releaseDirector()
@@ -184,6 +195,13 @@ export function apply(ctx: ClientContext): void {
   }
 
   const surfaceController: NarraticaSurfaceController = {
+    directorReference: {
+      getSnapshot: () => directorReference,
+      subscribe: listener => {
+        directorListeners.add(listener)
+        return () => { directorListeners.delete(listener) }
+      },
+    },
     async focusSession(sessionId) {
       if (ctx.layout.panelInfo.getSnapshot().activePanelId !== NARRATICA_PANEL_ID) {
         throw new Error('Narratica 工作区尚未打开，不能切换内部导演会话')
@@ -196,6 +214,7 @@ export function apply(ctx: ClientContext): void {
       try {
         await next.ready
         if (directorReference !== next) throw new Error('Narratica 导演会话加载已取消')
+        publishDirectorReference()
       } catch (error) {
         if (directorReference === next) releaseDirector()
         throw error
