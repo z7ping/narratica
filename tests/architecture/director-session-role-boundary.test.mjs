@@ -35,7 +35,7 @@ test('正式导演抽屉按职责显示文案，小说专用确定性命令不�
   assert.match(directorUi, /routeForProject: \(projectId: ProjectId\) => NarraticaDirectorRoute/)
   assert.match(directorUi, /'媒体生产导演'/)
   assert.match(directorUi, /'剧本导演'/)
-  assert.match(directorUi, /const novelLocalCommand = PREVIEW_SETTING\.test\(text\)/)
+  assert.match(directorUi, /const novelLocalCommand = isNovelLocalCommand\(text\)/)
   assert.match(directorUi, /route !== 'novel' && novelLocalCommand/)
   assert.match(directorUi, /这个命令属于小说导演的本地确认流程/)
   assert.match(directorUi, /route === 'novel' && PREVIEW_SETTING\.test\(text\)/)
