@@ -69,7 +69,7 @@ export function useAiActionConfirmation() {
         <p><strong>将执行：</strong>{pending.label}</p>
         <p>{pending.purpose}</p>
         <p className="notice">确认后才会真正发起{pending.kind === 'media' ? '媒体生成请求' : '模型请求'}，可能消耗额度或产生费用；取消不会触发 AI。</p>
-        <p className="meta">AI 生成的候选仍遵守现有作者确认规则，不会因为本弹窗确认就自动定稿或采用。</p>
+        <p className="meta">这次确认仅授权执行上方说明的任务；候选采用仍由作者决定，章节提交等操作可能在满足原有质量门禁后更新正式记录。</p>
       </div>
       <div className="modal-actions">
         <button className="btn" type="button" autoFocus onClick={cancel}>取消</button>
