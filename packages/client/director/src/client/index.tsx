@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AiActionHint } from '@narratica/client-layout/ui'
+import { AiActionHint, useAiActionConfirmation } from '@narratica/client-layout/ui'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { ConversationViewsProps, UserTextRule } from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -332,6 +332,7 @@ function DirectorPanel(props: DirectorProps) {
   const directorReference = props.useDirectorReference(value => value)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
+  const { requestAi, aiDialog } = useAiActionConfirmation()
   const [notice, setNotice] = useState<string>()
   const [error, setError] = useState<string>()
   const [settingPreview, setSettingPreview] = useState<SettingPreviewCheckpoint>()
@@ -554,9 +555,17 @@ function DirectorPanel(props: DirectorProps) {
     setNotice(`已驳回待确认关系 ${relationId}；没有修改正式关系。`)
   }
 
-  const submit = async (): Promise<void> => {
+  const submit = async (confirmed = false): Promise<void> => {
     const text = draft.trim()
     if (text.length === 0 || sending) return
+    if (!isNovelLocalCommand(text) && !confirmed) {
+      requestAi({
+        label: `发送给${directorLabel}`,
+        purpose: `将当前消息交给${directorLabel}执行，可能读取作品文件、调用工具或生成新的候选内容。\n消息预览：${text.slice(0, 160)}${text.length > 160 ? '…' : ''}`,
+        execute: () => { void submit(true) },
+      })
+      return
+    }
     setSending(true); setNotice(undefined); setError(undefined)
     try {
       const previewRestoreMatch = PREVIEW_SETTING_RESTORE.exec(text)
@@ -629,6 +638,7 @@ function DirectorPanel(props: DirectorProps) {
         </form>
       </div>
     </aside>
+    {aiDialog}
   </>
 }
 
