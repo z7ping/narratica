@@ -43,11 +43,12 @@ test('正式导演抽屉按职责显示文案，小说专用确定性命令不�
   assert.match(directorUi, /routeForProject: projectId => director\.routeForProject\(projectId\)/)
 })
 
-test('Director DSH 历史保留内部身份信封，但普通抽屉只显示真实用户输入', () => {
-  assert.match(directorUi, /function visibleDirectorUserText\(text: string\): string/)
-  assert.match(directorUi, /DIRECTOR_ENVELOPE_COMMAND/)
-  assert.match(directorUi, /lines\.slice\(separator \+ 1\)\.join\('\\n'\)\.trim\(\)/)
-  assert.match(directorUi, /const text = visibleDirectorUserText\(raw\)/)
+test('Director 原生 Chat 按文本展示规则隐藏内部身份信封，不修改持久会话', () => {
+  assert.match(directorUi, /DIRECTOR_ENVELOPE/)
+  assert.match(directorUi, /id: 'narratica-director-envelope'/)
+  assert.match(directorUi, /display: ''/)
+  assert.match(directorUi, /uiConversation\.userText\.register\(directorEnvelopeRule\)/)
+  assert.match(directorUi, /props\.submit\(projectId, text\)/)
 })
 
 test('旧作品级共享 Director 只迁入小说导演', () => {
