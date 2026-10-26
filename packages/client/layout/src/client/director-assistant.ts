@@ -45,14 +45,21 @@ export const DIRECTOR_ASSISTANT_STYLES = `
   color:var(--n-text-tertiary);
   font-size:var(--n-font-size-xs);
 }
-.narratica-root .assistant-drawer .director-body>.small-card{
+.narratica-root .assistant-drawer .director-confirmation{
+  flex:0 0 auto;
   margin-top:var(--n-space-1);
   border-color:var(--n-border);
   background:var(--n-surface-subtle);
   box-shadow:none;
+  padding:var(--n-space-2) var(--n-space-3);
 }
-.narratica-root .assistant-drawer .director-body>.small-card h4{font-size:var(--n-font-size-sm)}
-.narratica-root .assistant-drawer .director-body>.small-card p{font-size:var(--n-font-size-xs);line-height:var(--n-line-normal)}
+.narratica-root .assistant-drawer .director-confirmation summary{
+  cursor:pointer;font-size:var(--n-font-size-sm);font-weight:600;
+}
+.narratica-root .assistant-drawer .director-confirmation p{
+  margin-top:var(--n-space-2);
+  font-size:var(--n-font-size-xs);line-height:var(--n-line-normal);
+}
 /* Embed the official DSH Conversation content; only Narratica's guarded composer stays visible. */
 .narratica-root .assistant-drawer .director-chat-host{
   flex:1 1 0;
@@ -66,9 +73,6 @@ export const DIRECTOR_ASSISTANT_STYLES = `
 }
 .narratica-root .assistant-drawer .director-chat-host [data-conversation-region="composer"]{
   display:none;
-}
-.narratica-root .assistant-drawer .director-body>.small-card{
-  flex:0 0 auto;
 }
 .narratica-root .assistant-drawer .director-input{
   position:static;
