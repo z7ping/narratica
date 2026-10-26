@@ -4,7 +4,6 @@ import type { AdoptLegacyLibraryProjectInput, LibraryDirectoryScan, LibraryDirec
 import type { Context } from '@deepseek-ai/cordis'
 import type { ConnectionHandle, SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ISessions, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { ConversationNode, PartialAssistant } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { createDirectorSessionSource } from './director-session-source.js'
 import { probeDirectorHistory } from './director-history.js'
 import type { IWorkspaces } from '@deepseek-ai/dsh-api-workspace-controller/client'
@@ -155,9 +154,8 @@ export type DirectorSubmitResult =
 
 export type NarraticaDirectorRoute = 'novel' | 'screenplay-adaptation' | 'screenplay-preproduction' | 'media-production'
 
+/** Director-specific lifecycle only; DSH Chat owns every message and live chunk. */
 export interface DirectorConversationSnapshot {
-  readonly nodes: readonly ConversationNode[]
-  readonly partial: PartialAssistant | null
   readonly promptError: SessionSnapshot['promptError']
   readonly running: boolean
   readonly removed: boolean
