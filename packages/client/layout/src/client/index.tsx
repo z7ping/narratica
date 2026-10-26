@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
@@ -5,6 +6,7 @@ import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import narraticaAppIconUrl from './assets/narratica-app-icon.svg'
+import { activateNarraticaBrowserTab } from './browser-tab-branding.js'
 import {
   injectNarraticaFooterAction,
   registerNarraticaMain,
@@ -123,6 +125,8 @@ function NarraticaLauncher({ wide, toggleNarratica }: NarraticaLauncherProps) {
 }
 
 function NarraticaSurface(props: NarraticaSurfaceProps) {
+  useEffect(() => activateNarraticaBrowserTab(narraticaAppIconUrl), [])
+
   return (
     <div className="narratica-root" data-narratica-root="true">
       {props.renderSlot('narratica.topbar', {}, {
